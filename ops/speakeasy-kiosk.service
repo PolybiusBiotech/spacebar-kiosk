@@ -1,0 +1,17 @@
+[Unit]
+Description=Speakeasy Kiosk server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/speakeasy-kiosk
+EnvironmentFile=/etc/speakeasy-kiosk.env
+ExecStart=/usr/bin/node /opt/speakeasy-kiosk/src/server.js
+Restart=always
+RestartSec=5
+User=pi
+Group=pi
+
+[Install]
+WantedBy=multi-user.target

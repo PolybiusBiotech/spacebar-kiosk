@@ -1,0 +1,17 @@
+[Unit]
+Description=Speakeasy Kiosk browser
+After=graphical-session.target speakeasy-kiosk.service
+Wants=speakeasy-kiosk.service
+
+[Service]
+Type=simple
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/pi/.Xauthority
+ExecStart=/usr/bin/chromium-browser --kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble --check-for-update-interval=31536000 http://127.0.0.1:8080
+Restart=always
+RestartSec=3
+User=pi
+Group=pi
+
+[Install]
+WantedBy=graphical.target

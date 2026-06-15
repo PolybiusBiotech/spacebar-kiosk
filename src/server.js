@@ -1,0 +1,333 @@
+import fs from "node:fs/promises";
+import http from "node:http";
+import path from "node:path";
+import { randomUUID } from "node:crypto";
+
+import { loadConfig, validateRuntimeConfig } from "./config.js";
+import { expireOrders, fetchStock, placeOrder, TillwebError } from "./tillweb.js";
+import { printOrderSlip } from "./printer.js";
+
+const MIME_TYPES = {
+  ".html": "text/html; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".svg": "image/svg+xml"
+};
+
+function sendJson(res, status, payload) {
+  const body = JSON.stringify(payload);
+  res.writeHead(status, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+    "Content-Length": Buffer.byteLength(body)
+  });
+  res.end(body);
+}
+
+async function readJson(req) {
+  const chunks = [];
+  for await (const chunk of req) {
+    chunks.push(chunk);
+  }
+  if (!chunks.length) {
+    return {};
+  }
+  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+}
+
+function stockForClient(config, stock) {
+  return {
+    location: stock.location ?? config.location,
+    order_prefix: config.orderPrefix,
+    expired_orders: stock.expired_orders ?? [],
+    items: (stock.items ?? []).filter(item => item.available === true)
+  };
+}
+
+function mockStock(config) {
+  return {
+    location: config.location,
+    expired_orders: [],
+    items: [
+      {
+        stockline_id: 101,
+        name: "Club Mate Regular",
+        description: "Club Mate Regular 500ml bottle",
+        price: "2.80",
+        available: true,
+        available_quantity: "20",
+        available_display: "20 bottles"
+      },
+      {
+        stockline_id: 102,
+        name: "Club Mate Cola",
+        description: "Club Mate Cola 330ml bottle",
+        price: "2.60",
+        available: true,
+        available_quantity: "14",
+        available_display: "14 bottles"
+      },
+      {
+        stockline_id: 103,
+        name: "Lemon Soda",
+        description: "Sparkling lemon soft drink",
+        price: "2.20",
+        available: true,
+        available_quantity: "9",
+        available_display: "9 cans"
+      },
+      {
+        stockline_id: 104,
+        name: "Ginger Beer",
+        description: "Fiery ginger beer can",
+        price: "2.40",
+        available: true,
+        available_quantity: "11",
+        available_display: "11 cans"
+      }
+    ]
+  };
+}
+
+function mockOrder(config, body) {
+  const stock = mockStock(config).items;
+  const lines = body.items.map(item => {
+    const product = stock.find(candidate => candidate.stockline_id === item.stockline_id);
+    const unitPrice = product?.price ?? "0.00";
+    const lineTotal = (Number.parseFloat(unitPrice) * item.qty).toFixed(2);
+    return {
+      description: product?.description ?? `Stockline ${item.stockline_id}`,
+      quantity: item.qty,
+      unit_price: unitPrice,
+      line_total: lineTotal
+    };
+  });
+  const total = lines.reduce((sum, line) => sum + Number.parseFloat(line.line_total), 0).toFixed(2);
+  const now = new Date();
+  const expires = new Date(now.getTime() + 15 * 60 * 1000);
+
+  return {
+    order_number: "123",
+    order_name: `${config.orderPrefix} 123`,
+    order_prefix: config.orderPrefix,
+    location: config.location,
+    transaction_id: 1,
+    created: true,
+    created_at: now.toISOString(),
+    expires_at: expires.toISOString(),
+    idempotency_key: body.idempotency_key,
+    status: "accepted",
+    total,
+    lines,
+    slip: {
+      title: `${config.orderPrefix} order 123`,
+      created_at: now.toISOString(),
+      expires_at: expires.toISOString(),
+      unpaid: true,
+      total,
+      lines
+    },
+    expired_orders: []
+  };
+}
+
+function logMockOrder(order) {
+  console.log(`[mock-order] ${order.order_name} total GBP ${order.total}`);
+  for (const line of order.lines ?? []) {
+    console.log(
+      `[mock-order] ${line.quantity} x ${line.description} @ GBP ${line.unit_price} = GBP ${line.line_total}`
+    );
+  }
+}
+
+function validateOrderBody(body) {
+  if (!body || !Array.isArray(body.items) || body.items.length === 0) {
+    return "Order must contain at least one item.";
+  }
+
+  for (const item of body.items) {
+    if (!Number.isInteger(item.stockline_id) || !Number.isInteger(item.qty) || item.qty <= 0) {
+      return "Each order item must include an integer stockline_id and positive integer qty.";
+    }
+  }
+
+  return null;
+}
+
+function tillwebFailure(res, error) {
+  if (error instanceof TillwebError) {
+    sendJson(res, error.status, error.payload ?? { error: "tillweb-error", message: error.message });
+    return;
+  }
+  sendJson(res, 500, { error: "kiosk-error", message: error.message });
+}
+
+function delay(ms) {
+  return new Promise(resolve => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function placeOrderWithNetworkRetry(config, order) {
+  try {
+    return await placeOrder(config, order);
+  } catch (error) {
+    const isNetworkFailure =
+      error instanceof TillwebError && error.status === 502 && error.payload?.error === "network-error";
+    if (!isNetworkFailure) {
+      throw error;
+    }
+    await delay(1500);
+    return placeOrder(config, order);
+  }
+}
+
+async function serveStatic(config, req, res) {
+  const requestUrl = new URL(req.url, `http://${req.headers.host}`);
+  const safePath = path
+    .normalize(decodeURIComponent(requestUrl.pathname))
+    .replace(/^(\.\.[/\\])+/, "");
+  const relativePath = safePath === "/" ? "index.html" : safePath.replace(/^[/\\]/, "");
+  const filePath = path.join(config.publicDir, relativePath);
+
+  if (!filePath.startsWith(config.publicDir)) {
+    res.writeHead(403);
+    res.end("Forbidden");
+    return;
+  }
+
+  try {
+    const body = await fs.readFile(filePath);
+    const ext = path.extname(filePath);
+    res.writeHead(200, {
+      "Content-Type": MIME_TYPES[ext] ?? "application/octet-stream",
+      "Cache-Control": "no-store"
+    });
+    res.end(body);
+  } catch {
+    res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+    res.end("Not found");
+  }
+}
+
+export function createServer(config) {
+  return http.createServer(async (req, res) => {
+    const requestUrl = new URL(req.url, `http://${req.headers.host}`);
+
+    try {
+      if (requestUrl.pathname === "/healthz") {
+        sendJson(res, 200, { ok: true, location: config.location });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/config") {
+        const missing = config.mockMode ? [] : validateRuntimeConfig(config);
+        sendJson(res, missing.length ? 503 : 200, {
+          location: config.location,
+          order_prefix: config.orderPrefix,
+          print_enabled: config.printEnabled,
+          mock_mode: config.mockMode,
+          ready: missing.length === 0,
+          missing
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/stock" && req.method === "GET") {
+        const missing = config.mockMode ? [] : validateRuntimeConfig(config);
+        if (missing.length) {
+          sendJson(res, 503, { error: "misconfigured", message: "Kiosk is missing configuration.", missing });
+          return;
+        }
+        const stock = config.mockMode ? mockStock(config) : await fetchStock(config);
+        sendJson(res, 200, stockForClient(config, stock));
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/orders" && req.method === "POST") {
+        const missing = config.mockMode ? [] : validateRuntimeConfig(config);
+        if (missing.length) {
+          sendJson(res, 503, { error: "misconfigured", message: "Kiosk is missing configuration.", missing });
+          return;
+        }
+
+        const body = await readJson(req);
+        const validation = validateOrderBody(body);
+        if (validation) {
+          sendJson(res, 400, { error: "bad-order", message: validation });
+          return;
+        }
+
+        const orderRequest = {
+          idempotency_key: body.idempotency_key || randomUUID(),
+          items: body.items
+        };
+        const order = config.mockMode
+          ? mockOrder(config, orderRequest)
+          : await placeOrderWithNetworkRetry(config, orderRequest);
+        if (config.mockMode) {
+          logMockOrder(order);
+        }
+
+        try {
+          const printResult = await printOrderSlip(config, order);
+          sendJson(res, 200, { ...order, print: printResult });
+        } catch (error) {
+          sendJson(res, 502, {
+            ...order,
+            error: "printer-error",
+            message: "Order was created, but the slip could not be printed.",
+            printer_message: error.message
+          });
+        }
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/orders/expire" && req.method === "POST") {
+        const missing = config.mockMode ? [] : validateRuntimeConfig(config);
+        if (missing.length) {
+          sendJson(res, 503, { error: "misconfigured", message: "Kiosk is missing configuration.", missing });
+          return;
+        }
+        sendJson(res, 200, config.mockMode ? { location: config.location, expired_orders: [] } : await expireOrders(config));
+        return;
+      }
+
+      if (req.method === "GET" || req.method === "HEAD") {
+        await serveStatic(config, req, res);
+        return;
+      }
+
+      sendJson(res, 405, { error: "method-not-allowed", message: "Method not allowed." });
+    } catch (error) {
+      tillwebFailure(res, error);
+    }
+  });
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const config = loadConfig();
+  const server = createServer(config);
+
+  server.on("error", error => {
+    if (error.code === "EADDRINUSE") {
+      console.error(`Could not start kiosk: ${config.listenHost}:${config.port} is already in use.`);
+    } else if (error.code === "EACCES" || error.code === "EPERM") {
+      console.error(`Could not start kiosk: permission denied binding ${config.listenHost}:${config.port}.`);
+    } else {
+      console.error(`Could not start kiosk: ${error.message}`);
+    }
+    process.exitCode = 1;
+  });
+
+  server.listen(config.port, config.listenHost, () => {
+    const missing = config.mockMode ? [] : validateRuntimeConfig(config);
+    console.log(`Speakeasy kiosk listening on http://${config.listenHost}:${config.port}`);
+    if (config.mockMode) {
+      console.log("Mock mode is enabled; tillweb will not be contacted.");
+    } else if (missing.length) {
+      console.warn(`Kiosk is not ready; missing configuration: ${missing.join(", ")}`);
+    }
+  });
+}
