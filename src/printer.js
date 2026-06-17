@@ -1,4 +1,7 @@
 import { spawn } from "node:child_process";
+import { writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 import { renderSlip } from "./slip.js";
 
@@ -65,8 +68,29 @@ export async function checkPrinterStatus(config) {
   });
 }
 
+async function dummyPrintSlip(order, slipData) {
+  const ref = order.order_ref ?? "unknown";
+  const outPath = path.join(tmpdir(), `kiosk-receipt-${ref}.bin`);
+  await writeFile(outPath, slipData);
+
+  console.log(`[dummy-print] ──────────────────────────────────────`);
+  console.log(`[dummy-print] ${order.order_name ?? ref}  total: £${order.total}`);
+  for (const line of order.slip?.lines ?? order.lines ?? []) {
+    const price = `£${Number.parseFloat(line.line_total ?? 0).toFixed(2)}`;
+    console.log(`[dummy-print]   ${line.quantity} × ${line.description}  ${price}`);
+  }
+  console.log(`[dummy-print] ESC/POS binary: ${slipData.length} bytes → ${outPath}`);
+  console.log(`[dummy-print] ──────────────────────────────────────`);
+}
+
 export async function printOrderSlip(config, order) {
   const slipData = await renderSlip(order);
+
+  if (config.dummyPrint || (config.mockMode && config.printEnabled)) {
+    await dummyPrintSlip(order, slipData);
+    return { printed: true, skipped: false, dummy: true, bytes: slipData.length };
+  }
+
   if (!config.printEnabled) {
     return { printed: false, skipped: true, bytes: slipData.length };
   }
