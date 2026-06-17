@@ -73,11 +73,17 @@ export function stocklineToProduct(stockline) {
   const price = stocktype.price == null ? null : String(stocktype.price);
   const available = price !== null && availableQuantity > 0;
 
+  const dept = stocktype.department;
+  const category = dept
+    ? (typeof dept === "string" ? dept : (dept.description ?? dept.name ?? null))
+    : null;
+
   return {
     stockline_id: stockline.id,
     name: stockline.name,
     location: stockline.location,
     line_type: stockline.linetype,
+    category,
     stocktype: {
       id: stocktype.id,
       manufacturer: stocktype.manufacturer,

@@ -123,19 +123,20 @@ function reconcileBasket() {
 }
 
 function getCategories() {
-  const cats = new Set();
-  for (const meta of Object.values(state.productMeta)) {
-    if (meta.category) cats.add(meta.category);
+  const seen = new Set();
+  const cats = [];
+  for (const p of state.products) {
+    if (p.category && !seen.has(p.category)) {
+      seen.add(p.category);
+      cats.push(p.category);
+    }
   }
-  return [...cats];
+  return cats;
 }
 
 function visibleProducts() {
   if (!state.activeCategory) return state.products;
-  return state.products.filter(p => {
-    const meta = state.productMeta[p.stockline_id];
-    return meta && meta.category === state.activeCategory;
-  });
+  return state.products.filter(p => p.category === state.activeCategory);
 }
 
 async function loadConfig() { state.config = await jsonFetch("/api/config"); }
