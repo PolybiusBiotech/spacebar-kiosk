@@ -66,9 +66,9 @@ export async function checkPrinterStatus(config) {
 }
 
 export async function printOrderSlip(config, order) {
-  const slipText = renderSlip(order);
+  const slipData = await renderSlip(order);
   if (!config.printEnabled) {
-    return { printed: false, skipped: true, slipText };
+    return { printed: false, skipped: true, bytes: slipData.length };
   }
 
   // Pre-flight: verify printer is reachable before submitting the job.
@@ -101,6 +101,6 @@ export async function printOrderSlip(config, order) {
       }
     });
 
-    child.stdin.end(slipText);
+    child.stdin.end(slipData);
   });
 }

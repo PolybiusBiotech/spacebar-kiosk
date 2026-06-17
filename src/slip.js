@@ -1,74 +1,122 @@
+// ESC/POS slip generation for Epson U220A (9-pin dot matrix, 76mm, two-colour ribbon).
+//
+// QR code is rendered as a raster bitmap (GS v 0) — the U220A does not support
+// the GS ( k QR generation commands.
+//
+// Requires the `qrcode` npm package.
+
+import QRCode from "qrcode";
+
+const COLS = 42; // characters per line at standard density on 76mm paper
+
+const ESC = 0x1B;
+const GS  = 0x1D;
+
+const INIT         = Buffer.from([ESC, 0x40]);           // ESC @ — reset printer
+const ALIGN_LEFT   = Buffer.from([ESC, 0x61, 0x00]);
+const ALIGN_CENTER = Buffer.from([ESC, 0x61, 0x01]);
+const COLOR_RED    = Buffer.from([ESC, 0x72, 0x01]);
+const COLOR_BLACK  = Buffer.from([ESC, 0x72, 0x00]);
+const FULL_CUT     = Buffer.from([GS,  0x56, 0x41, 0x00]);
+
+function t(str) {
+  return Buffer.from(`${str}\n`, "ascii");
+}
+
 function money(value) {
-  const number = Number.parseFloat(value);
-  return Number.isFinite(number) ? number.toFixed(2) : String(value ?? "");
+  const n = Number.parseFloat(value);
+  return `£${Number.isFinite(n) ? n.toFixed(2) : "?.??"}`;
 }
 
-function dateTime(value) {
-  if (!value) {
-    return "";
-  }
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return String(value);
-  }
-  return parsed.toLocaleString("en-GB", {
-    dateStyle: "short",
-    timeStyle: "short"
-  });
+function itemLine(item) {
+  const qty    = String(item.quantity ?? 1);
+  const price  = money(item.line_total);
+  const prefix = `${qty} x `;
+  // right-align price, fill description to width
+  const descWidth = COLS - prefix.length - price.length - 1;
+  const desc = String(item.description ?? "").slice(0, descWidth).padEnd(descWidth);
+  return t(`${prefix}${desc} ${price}`);
 }
 
-function line(text = "", width = 42) {
-  return String(text).slice(0, width).padEnd(width, " ");
+// TODO LUKE: replace with actual logo bitmap.
+// Render a raster image via GS v 0 and concat it here.
+function logoBytes() {
+  return Buffer.alloc(0);
 }
 
-function wrap(text, width = 42) {
-  const words = String(text ?? "").split(/\s+/).filter(Boolean);
-  const lines = [];
-  let current = "";
-  for (const word of words) {
-    if (!current) {
-      current = word;
-    } else if (`${current} ${word}`.length <= width) {
-      current = `${current} ${word}`;
-    } else {
-      lines.push(current);
-      current = word;
+async function qrBytes(content, scale = 4) {
+  const qr      = QRCode.create(content, { errorCorrectionLevel: "M" });
+  const size    = qr.modules.size;
+  const modules = qr.modules.data; // Uint8Array: 1 = dark, 0 = light
+
+  const pixelWidth  = size * scale;
+  const bytesPerRow = Math.ceil(pixelWidth / 8);
+  const pixelHeight = size * scale;
+  const raster      = Buffer.alloc(bytesPerRow * pixelHeight, 0);
+
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      if (!modules[row * size + col]) continue;
+      for (let sy = 0; sy < scale; sy++) {
+        for (let sx = 0; sx < scale; sx++) {
+          const px  = col * scale + sx;
+          const py  = row * scale + sy;
+          const idx = py * bytesPerRow + Math.floor(px / 8);
+          raster[idx] |= 1 << (7 - (px % 8));
+        }
+      }
     }
   }
-  if (current) {
-    lines.push(current);
-  }
-  return lines.length ? lines : [""];
+
+  // GS v 0 m xL xH yL yH data
+  return Buffer.concat([
+    Buffer.from([GS, 0x76, 0x30, 0x00,
+      bytesPerRow & 0xFF, (bytesPerRow >> 8) & 0xFF,
+      pixelHeight  & 0xFF, (pixelHeight  >> 8) & 0xFF]),
+    raster
+  ]);
 }
 
-export function renderSlip(order) {
-  const slip = order.slip ?? order;
-  const title = slip.title ?? order.order_name ?? "Kiosk order";
-  const lines = [
-    "",
-    line(title.toUpperCase()),
-    line("UNPAID - PAY AT THE TILL"),
-    line("-".repeat(42)),
-    line(`Created: ${dateTime(slip.created_at ?? order.created_at)}`),
-    line(`Expires: ${dateTime(slip.expires_at ?? order.expires_at)}`),
-    line("-".repeat(42))
+export async function renderSlip(order) {
+  const slip      = order.slip ?? order;
+  const orderName = order.order_name ?? "Kiosk order";
+  const totalStr  = money(slip.total ?? order.total);
+
+  // "Grand total " left, price right — colour change mid-line
+  const label  = "Grand total ";
+  const spaces = " ".repeat(Math.max(0, COLS - label.length - totalStr.length));
+
+  const parts = [
+    INIT,
+    ALIGN_CENTER,
+    logoBytes(),
+    // TODO LUKE: remove blank line below once logo has its own vertical spacing
+    t(""),
+    t(orderName),
+    ALIGN_LEFT,
+    t("-".repeat(COLS)),
+    t(""),
   ];
 
   for (const item of slip.lines ?? []) {
-    lines.push(...wrap(item.description));
-    const qty = String(item.quantity ?? "");
-    const unit = money(item.unit_price);
-    const total = money(item.line_total);
-    lines.push(line(`${qty} x GBP ${unit}`.padEnd(28, " ") + `GBP ${total}`));
+    parts.push(itemLine(item));
   }
 
-  lines.push(line("-".repeat(42)));
-  lines.push(line(`TOTAL`.padEnd(28, " ") + `GBP ${money(slip.total ?? order.total)}`));
-  lines.push("");
-  lines.push(line("Take this slip to a human-operated till."));
-  lines.push(line("Order is not paid until staff complete it."));
-  lines.push("");
-  lines.push("");
-  lines.push("");
-  return `${lines.join("\n")}\n`;
+  parts.push(
+    t(""),
+    // Grand total: label in black, price in red
+    Buffer.from(label + spaces, "ascii"),
+    COLOR_RED,
+    Buffer.from(totalStr, "ascii"),
+    COLOR_BLACK,
+    Buffer.from("\n", "ascii"),
+    t(""),
+    ALIGN_CENTER,
+    await qrBytes(`KIOSK:${order.order_ref}`),
+    ALIGN_LEFT,
+    t(""), t(""), t(""),
+    FULL_CUT
+  );
+
+  return Buffer.concat(parts);
 }
