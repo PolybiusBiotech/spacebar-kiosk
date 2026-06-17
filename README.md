@@ -3,7 +3,15 @@
 Customer-facing Raspberry Pi touchscreen kiosk for creating unpaid drink orders
 in tillweb. The kiosk shows stock for one configured till location, sends the
 basket to tillweb, prints the returned unpaid order slip locally, and shows the
-customer the order number to take to a human-operated till.
+customer the order ref to take to a human-operated till.
+
+## Screenshots
+
+| Sleep screen | Product grid | Basket | Order placed |
+|:---:|:---:|:---:|:---:|
+| ![Sleep screen](docs/screenshots/sleep.png) | ![Product grid with category tabs](docs/screenshots/products.png) | ![Basket with items](docs/screenshots/basket.png) | ![Order placed confirmation](docs/screenshots/complete.png) |
+
+> Screenshots taken in mock mode (`KIOSK_MOCK_MODE=true`). Run `npm start` with those env vars to reproduce locally.
 
 ## Runtime Shape
 
