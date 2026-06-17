@@ -15,7 +15,7 @@ customer the order ref to take to a human-operated till.
 
 ## Runtime Shape
 
-- A dependency-free Node.js server serves the kiosk UI on localhost.
+- A Node.js server serves the kiosk UI on localhost (one runtime dependency: `qrcode` for slip generation).
 - The browser never sees the tillweb bearer token; the local server proxies API
   calls to tillweb.
 - Slips print through CUPS using `lp` by default.
