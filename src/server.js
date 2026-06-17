@@ -51,43 +51,123 @@ function mockStock(config) {
     items: [
       {
         stockline_id: 101,
-        name: "Club Mate Regular",
-        description: "Club Mate Regular 500ml bottle",
-        category: "Soft Drinks",
-        price: "2.80",
+        name: "BuzzBallz Strawberry 'Rita",
+        description: "200ml 15% ABV",
+        category: "BuzzBallz",
+        price: "4.50",
         available: true,
-        available_quantity: "20",
-        available_display: "20 bottles"
+        available_quantity: "24",
+        available_display: "24"
       },
       {
         stockline_id: 102,
-        name: "Club Mate Cola",
-        description: "Club Mate Cola 330ml bottle",
-        category: "Soft Drinks",
-        price: "2.60",
+        name: "BuzzBallz Chili Mango",
+        description: "200ml 15% ABV",
+        category: "BuzzBallz",
+        price: "4.50",
         available: true,
-        available_quantity: "14",
-        available_display: "14 bottles"
+        available_quantity: "24",
+        available_display: "24"
       },
       {
         stockline_id: 103,
-        name: "Lemon Soda",
-        description: "Sparkling lemon soft drink",
-        category: "Soft Drinks",
-        price: "2.20",
+        name: "BuzzBallz Grape Crunch",
+        description: "200ml 15% ABV",
+        category: "BuzzBallz",
+        price: "4.50",
         available: true,
-        available_quantity: "9",
-        available_display: "9 cans"
+        available_quantity: "24",
+        available_display: "24"
       },
       {
         stockline_id: 104,
-        name: "Ginger Beer",
-        description: "Fiery ginger beer can",
-        category: "Soft Drinks",
-        price: "2.40",
+        name: "BuzzBallz Lemon Drop",
+        description: "200ml 15% ABV",
+        category: "BuzzBallz",
+        price: "4.50",
         available: true,
-        available_quantity: "11",
-        available_display: "11 cans"
+        available_quantity: "24",
+        available_display: "24"
+      },
+      {
+        stockline_id: 105,
+        name: "BuzzBallz Watermelon Smash",
+        description: "200ml 15% ABV",
+        category: "BuzzBallz",
+        price: "4.50",
+        available: true,
+        available_quantity: "24",
+        available_display: "24"
+      },
+      {
+        stockline_id: 106,
+        name: "BuzzBallz Blue Raspberry",
+        description: "200ml 15% ABV",
+        category: "BuzzBallz",
+        price: "4.50",
+        available: true,
+        available_quantity: "24",
+        available_display: "24"
+      },
+      {
+        stockline_id: 107,
+        name: "BuzzBallz Peach Fuzz",
+        description: "200ml 15% ABV",
+        category: "BuzzBallz",
+        price: "4.50",
+        available: true,
+        available_quantity: "24",
+        available_display: "24"
+      },
+      {
+        stockline_id: 108,
+        name: "BuzzBallz Cran Bliss",
+        description: "200ml 15% ABV",
+        category: "BuzzBallz",
+        price: "4.50",
+        available: true,
+        available_quantity: "24",
+        available_display: "24"
+      },
+      {
+        stockline_id: 201,
+        name: "Rum & Coke",
+        description: "Pre-mixed can 330ml",
+        category: "Mixed Cans",
+        price: "4.00",
+        available: true,
+        available_quantity: "48",
+        available_display: "48"
+      },
+      {
+        stockline_id: 202,
+        name: "Vodka & Coke",
+        description: "Pre-mixed can 330ml",
+        category: "Mixed Cans",
+        price: "4.00",
+        available: true,
+        available_quantity: "48",
+        available_display: "48"
+      },
+      {
+        stockline_id: 203,
+        name: "Jack & Coke",
+        description: "Pre-mixed can 330ml",
+        category: "Mixed Cans",
+        price: "4.00",
+        available: true,
+        available_quantity: "48",
+        available_display: "48"
+      },
+      {
+        stockline_id: 204,
+        name: "Gin & Tonic",
+        description: "Pre-mixed can 330ml",
+        category: "Mixed Cans",
+        price: "4.00",
+        available: true,
+        available_quantity: "48",
+        available_display: "48"
       }
     ]
   };
