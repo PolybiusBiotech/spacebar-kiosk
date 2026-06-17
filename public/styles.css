@@ -114,7 +114,8 @@ body {
 .kiosk {
   display: grid;
   grid-template-rows: minmax(0, 1fr) 40vh;
-  height: 100vh;
+  flex: 1;
+  min-height: 0;
   width: 100vw;
   overflow: hidden;
 }
@@ -126,6 +127,7 @@ body {
   flex-direction: column;
   background: #000F00;
   overflow: hidden;
+  min-height: 0;
 }
 
 .topbar {
@@ -233,6 +235,7 @@ body {
   padding: 12px;
   overflow-y: auto;
   flex: 1;
+  min-height: 0;
   align-content: start;
   scrollbar-width: thin;
   scrollbar-color: #0a3010 transparent;
