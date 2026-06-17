@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 
 import { loadConfig, validateRuntimeConfig } from "./config.js";
 import { expireOrders, fetchStock, placeOrder, TillwebError } from "./tillweb.js";
-import { printOrderSlip } from "./printer.js";
+import { printOrderSlip, checkPrinterStatus } from "./printer.js";
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -39,7 +39,6 @@ async function readJson(req) {
 function stockForClient(config, stock) {
   return {
     location: stock.location ?? config.location,
-    order_prefix: config.orderPrefix,
     expired_orders: stock.expired_orders ?? [],
     items: (stock.items ?? []).filter(item => item.available === true)
   };
@@ -108,9 +107,9 @@ function mockOrder(config, body) {
   const expires = new Date(now.getTime() + 15 * 60 * 1000);
 
   return {
-    order_number: "123",
-    order_name: `${config.orderPrefix} 123`,
-    order_prefix: config.orderPrefix,
+    order_ref: "ABC123",
+    order_name: "SB ABC123",
+    order_prefix: "SB",
     location: config.location,
     transaction_id: 1,
     created: true,
@@ -121,7 +120,7 @@ function mockOrder(config, body) {
     total,
     lines,
     slip: {
-      title: `${config.orderPrefix} order 123`,
+      title: "SB order ABC123",
       created_at: now.toISOString(),
       expires_at: expires.toISOString(),
       unpaid: true,
@@ -211,13 +210,59 @@ async function serveStatic(config, req, res) {
   }
 }
 
+// In-memory printer state. Updated after every print attempt and healthz check.
+const printerState = {
+  ok: null,          // null = never checked
+  status: "unknown",
+  message: "",
+  lastCheckedAt: null,
+  lastErrorAt: null,
+  lastPrintedAt: null
+};
+
+function updatePrinterState(result, printed = false) {
+  printerState.ok = result.ok ?? true;
+  printerState.status = result.status ?? (printed ? "idle" : "unknown");
+  printerState.message = result.message ?? "";
+  printerState.lastCheckedAt = new Date().toISOString();
+  if (!printerState.ok) printerState.lastErrorAt = printerState.lastCheckedAt;
+  if (printed) printerState.lastPrintedAt = printerState.lastCheckedAt;
+}
+
+// If KIOSK_OMS_URL is configured, POST printer errors there so the OMS
+// staff screen can alert. Fire-and-forget — kiosk flow is not blocked.
+function notifyOmsOfPrinterError(config, message) {
+  if (!config.omsUrl) return;
+  fetch(`${config.omsUrl}/api/printer-alert`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ location: config.location, message, at: new Date().toISOString() })
+  }).catch(() => {});
+}
+
 export function createServer(config) {
   return http.createServer(async (req, res) => {
     const requestUrl = new URL(req.url, `http://${req.headers.host}`);
 
     try {
       if (requestUrl.pathname === "/healthz") {
-        sendJson(res, 200, { ok: true, location: config.location });
+        const ps = config.mockMode
+          ? { ok: true, status: "idle", message: "Mock mode." }
+          : await checkPrinterStatus(config);
+        updatePrinterState(ps);
+        const ok = ps.ok !== false;
+        sendJson(res, ok ? 200 : 503, {
+          ok,
+          location: config.location,
+          printer: {
+            ok: printerState.ok,
+            status: printerState.status,
+            message: printerState.message,
+            last_checked_at: printerState.lastCheckedAt,
+            last_error_at: printerState.lastErrorAt,
+            last_printed_at: printerState.lastPrintedAt
+          }
+        });
         return;
       }
 
@@ -225,7 +270,6 @@ export function createServer(config) {
         const missing = config.mockMode ? [] : validateRuntimeConfig(config);
         sendJson(res, missing.length ? 503 : 200, {
           location: config.location,
-          order_prefix: config.orderPrefix,
           print_enabled: config.printEnabled,
           mock_mode: config.mockMode,
           ready: missing.length === 0,
@@ -272,8 +316,11 @@ export function createServer(config) {
 
         try {
           const printResult = await printOrderSlip(config, order);
+          updatePrinterState({ ok: true, status: "idle", message: "Print succeeded." }, true);
           sendJson(res, 200, { ...order, print: printResult });
         } catch (error) {
+          updatePrinterState({ ok: false, status: "error", message: error.message });
+          notifyOmsOfPrinterError(config, error.message);
           sendJson(res, 502, {
             ...order,
             error: "printer-error",
@@ -323,7 +370,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
   server.listen(config.port, config.listenHost, () => {
     const missing = config.mockMode ? [] : validateRuntimeConfig(config);
-    console.log(`Speakeasy kiosk listening on http://${config.listenHost}:${config.port}`);
+    console.log(`Spacebar kiosk listening on http://${config.listenHost}:${config.port}`);
     if (config.mockMode) {
       console.log("Mock mode is enabled; tillweb will not be contacted.");
     } else if (missing.length) {
