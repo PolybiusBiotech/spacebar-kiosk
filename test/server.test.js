@@ -34,7 +34,6 @@ test("config endpoint reports missing required tillweb settings", async () => {
     tillwebBaseUrl: "",
     kioskToken: "",
     location: "Kiosk",
-    orderPrefix: "Kiosk",
     printEnabled: false,
     publicDir: new URL("../public", import.meta.url).pathname
   });

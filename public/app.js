@@ -259,7 +259,7 @@ function render() {
   if (!state.config) {
     app.innerHTML = `
       <section class="status-screen">
-        <h1>Speakeasy Kiosk</h1>
+        <h1>Spacebar Kiosk</h1>
         <p>Starting up...</p>
       </section>
     `;
@@ -272,7 +272,7 @@ function render() {
       <div class="catalog">
         <header class="topbar">
           <div>
-            <h1>${escapeHtml(state.config.order_prefix || state.config.location)} drinks</h1>
+            <h1>${escapeHtml(state.config.location)} drinks</h1>
             <p>Choose your drinks, confirm the order, then take the printed slip to _____.</p>
           </div>
           <button class="refresh" data-refresh>Refresh</button>
@@ -327,7 +327,7 @@ function renderComplete(order) {
     <section class="complete">
       <p>Your order slip has been printed.</p>
       <h1>Take it to the till</h1>
-      <div class="order-number">${escapeHtml(order.order_name || `Order ${order.order_number}`)}</div>
+      <div class="order-number">${escapeHtml(order.order_name || `Order ${order.order_ref}`)}</div>
       <p>This order is unpaid until you complete payment.</p>
       <button data-new-order>Start another order</button>
     </section>
@@ -340,7 +340,7 @@ function renderPrinterError(order) {
     <section class="status-screen">
       <h1>Please ask for help</h1>
       <p>Your order was created, but the printer did not print the slip.</p>
-      <div class="order-number">${escapeHtml(order.order_name || `Order ${order.order_number}`)}</div>
+      <div class="order-number">${escapeHtml(order.order_name || `Order ${order.order_ref}`)}</div>
       <button data-new-order>Back to kiosk</button>
     </section>
   `;

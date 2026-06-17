@@ -1,0 +1,17 @@
+[Unit]
+Description=Spacebar Kiosk server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/spacebar-kiosk
+EnvironmentFile=/etc/spacebar-kiosk.env
+ExecStart=/usr/bin/node /opt/spacebar-kiosk/src/server.js
+Restart=always
+RestartSec=5
+User=pi
+Group=pi
+
+[Install]
+WantedBy=multi-user.target

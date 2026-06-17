@@ -1,5 +1,5 @@
 {
-  "name": "speakeasy-kiosk",
+  "name": "spacebar-kiosk",
   "version": "0.1.0",
   "private": true,
   "description": "Raspberry Pi touchscreen kiosk for creating unpaid tillweb drink orders.",

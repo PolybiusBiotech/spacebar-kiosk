@@ -1,7 +1,7 @@
 [Unit]
-Description=Speakeasy Kiosk browser
-After=graphical-session.target speakeasy-kiosk.service
-Wants=speakeasy-kiosk.service
+Description=Spacebar Kiosk browser
+After=graphical-session.target spacebar-kiosk.service
+Wants=spacebar-kiosk.service
 
 [Service]
 Type=simple
