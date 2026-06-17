@@ -376,5 +376,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     } else if (missing.length) {
       console.warn(`Kiosk is not ready; missing configuration: ${missing.join(", ")}`);
     }
+    if (config.printEnabled && !config.omsUrl) {
+      console.warn("WARNING: KIOSK_OMS_URL is not set. Printer errors will not be reported to the OMS staff screen. In a remote/unattended deployment this means staff will not know when the printer needs attention.");
+    }
   });
 }

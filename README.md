@@ -56,6 +56,10 @@ Useful optional settings:
 - `KIOSK_PRINT_COMMAND`: `lp` or `lpr`.
 - `KIOSK_PORT`: local HTTP port, default `8080`.
 
+Remote operations — required if the kiosk is unattended:
+
+- `KIOSK_OMS_URL`: base URL of the OMS server (e.g. `http://192.168.x.x:3000`). When set, printer errors are POSTed to `/api/printer-alert` so the OMS staff screen can alert bar staff. If not set, printer failures are visible on the kiosk screen but invisible to staff. Requires that the kiosk can reach the OMS server — confirm camp-network → VLAN routing with Luke before site.
+
 ## Operations
 
 Check status:
