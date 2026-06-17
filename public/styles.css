@@ -19,11 +19,6 @@
   font-weight: 700;
 }
 
-@keyframes spider-pulse {
-  0%   { opacity: 0.10; transform: scale(1.00); }
-  50%  { opacity: 0.17; transform: scale(1.02); }
-  100% { opacity: 0.10; transform: scale(1.00); }
-}
 
 @keyframes glow-pulse {
   0%   { text-shadow: 0 0 8px rgba(190,0,254,0.95), 0 0 24px rgba(190,0,254,0.6), 0 0 48px rgba(190,0,254,0.3); opacity: 1; }
@@ -89,14 +84,6 @@ body {
   z-index: 1;
 }
 
-.sleep-spider {
-  position: absolute;
-  width: 90vmin;
-  opacity: 0.12;
-  animation: spider-pulse 5s ease-in-out infinite;
-  pointer-events: none;
-  z-index: 0;
-}
 
 .sleep-content {
   display: flex;

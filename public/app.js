@@ -213,7 +213,6 @@ function escapeHtml(value) {
 function renderSleep() {
   return `
     <section class="sleep" data-wake>
-      <img class="sleep-spider" src="/images/spider.svg" alt="" aria-hidden="true">
       <div class="sleep-content">
         <img class="sleep-logo" src="/images/logo-text.svg" alt="Polybius Space Bar">
         <p class="sleep-prompt">TOUCH TO ORDER</p>
@@ -359,7 +358,7 @@ function renderComplete(order) {
     <div class="status-screen complete">
       <h1>Order placed!</h1>
       <p>Take your slip to the payment point to pay and collect.</p>
-      ${order.order_number ? `<div class="order-number">#${escapeHtml(String(order.order_number))}</div>` : ''}
+      ${order.order_ref ? `<div class="order-number">${escapeHtml(String(order.order_ref))}</div>` : ''}
       <button class="btn-primary" data-new-order>New Order</button>
     </div>
   `;
@@ -373,7 +372,7 @@ function renderPrinterError(payload) {
     <div class="status-screen">
       <h1>Printer error</h1>
       <p>Your order was placed but the receipt printer failed. Please tell bar staff.</p>
-      ${payload?.order_number ? `<div class="order-number">#${escapeHtml(String(payload.order_number))}</div>` : ''}
+      ${payload?.order_ref ? `<div class="order-number">${escapeHtml(String(payload.order_ref))}</div>` : ''}
       <button class="btn-primary" data-retry>OK</button>
     </div>
   `;
