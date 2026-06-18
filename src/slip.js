@@ -122,6 +122,63 @@ async function qrBytes(content, scale = 4) {
   ]);
 }
 
+export async function renderSlipHtml(order) {
+  const slip      = order.slip ?? order;
+  const orderName = order.order_name ?? String(order.order_ref ?? "?");
+  const barcode   = order.barcode ?? `KIOSK:${order.order_ref}`;
+  const totalStr  = money(slip.total ?? order.total);
+  const createdAt = order.created_at ? new Date(order.created_at).toLocaleTimeString("en-GB") : "";
+  const expiresAt = order.expires_at ? new Date(order.expires_at).toLocaleTimeString("en-GB") : "";
+
+  const qrDataUrl = await QRCode.toDataURL(barcode, { errorCorrectionLevel: "M", width: 220, margin: 2 });
+
+  const lineRows = (slip.lines ?? []).map(item => {
+    const qty   = item.quantity ?? 1;
+    const price = money(item.line_total);
+    return `<tr><td>${qty} × ${item.description}</td><td class="price">${price}</td></tr>`;
+  }).join("\n");
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Receipt ${orderName}</title>
+<style>
+  body { font-family: "Courier New", monospace; background: #f0f0f0; display: flex; justify-content: center; padding: 2rem; margin: 0; }
+  .receipt { background: #fff; width: 288px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+  h1 { font-size: 1rem; text-align: center; margin: 0 0 4px; }
+  .subtitle { font-size: 0.8rem; text-align: center; color: #555; margin: 0 0 12px; }
+  .order-num { font-size: 2rem; font-weight: bold; text-align: center; margin: 8px 0; letter-spacing: 0.1em; }
+  .divider { border: none; border-top: 1px dashed #999; margin: 8px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  td { padding: 2px 0; vertical-align: top; }
+  td.price { text-align: right; white-space: nowrap; }
+  .total-row { font-weight: bold; font-size: 1rem; border-top: 1px solid #000; padding-top: 4px; }
+  .unpaid { text-align: center; font-size: 0.85rem; font-weight: bold; margin: 10px 0; }
+  .qr { text-align: center; margin: 8px 0; }
+  .meta { font-size: 0.7rem; color: #888; text-align: center; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="receipt">
+  <h1>POLYBIUS SPACE BAR</h1>
+  <p class="subtitle">Spaceport PB-4242</p>
+  <hr class="divider">
+  <div class="order-num">${orderName}</div>
+  <hr class="divider">
+  <table>
+    ${lineRows}
+    <tr class="total-row"><td>Total</td><td class="price">${totalStr}</td></tr>
+  </table>
+  <p class="unpaid">⚠ UNPAID — take this slip to the bar</p>
+  <div class="qr"><img src="${qrDataUrl}" alt="${barcode}" width="180"></div>
+  <p class="meta">${barcode}</p>
+  ${createdAt ? `<p class="meta">Created: ${createdAt}${expiresAt ? ` · Expires: ${expiresAt}` : ""}</p>` : ""}
+</div>
+</body>
+</html>`;
+}
+
 export async function renderSlip(order) {
   const slip      = order.slip ?? order;
   const orderName = order.order_name ?? "Kiosk order";

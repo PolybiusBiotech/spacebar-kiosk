@@ -1,9 +1,9 @@
 import { spawn } from "node:child_process";
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { renderSlip } from "./slip.js";
+import { renderSlip, renderSlipHtml } from "./slip.js";
 
 function printArgs(config) {
   if (config.printCommand === "lpr") {
@@ -70,8 +70,17 @@ export async function checkPrinterStatus(config) {
 
 async function dummyPrintSlip(order, slipData) {
   const ref = order.order_ref ?? "unknown";
-  const outPath = path.join(tmpdir(), `kiosk-receipt-${ref}.bin`);
-  await writeFile(outPath, slipData);
+  const receiptsDir = path.resolve("receipts");
+  await mkdir(receiptsDir, { recursive: true });
+
+  const binPath  = path.join(tmpdir(), `kiosk-receipt-${ref}.bin`);
+  const htmlPath = path.join(receiptsDir, `receipt-${ref}.html`);
+
+  const [html] = await Promise.all([
+    renderSlipHtml(order),
+    writeFile(binPath, slipData),
+  ]);
+  await writeFile(htmlPath, html);
 
   console.log(`[dummy-print] ──────────────────────────────────────`);
   console.log(`[dummy-print] ${order.order_name ?? ref}  total: £${order.total}`);
@@ -79,7 +88,7 @@ async function dummyPrintSlip(order, slipData) {
     const price = `£${Number.parseFloat(line.line_total ?? 0).toFixed(2)}`;
     console.log(`[dummy-print]   ${line.quantity} × ${line.description}  ${price}`);
   }
-  console.log(`[dummy-print] ESC/POS binary: ${slipData.length} bytes → ${outPath}`);
+  console.log(`[dummy-print] receipt → ${htmlPath}`);
   console.log(`[dummy-print] ──────────────────────────────────────`);
 }
 
