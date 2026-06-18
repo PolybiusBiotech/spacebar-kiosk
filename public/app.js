@@ -336,7 +336,9 @@ const FLAVOUR_COLORS = [
   [/cran/i, "#9c1530"],                    // Cran Blaster — maroon
   [/tequila/i, "#9fd14e"],                 // Tequila 'Rita — margarita green (GUESS, confirm)
   [/'?rita/i, "#f22740"],                  // any other 'Rita → red
-  // Generic fallbacks for non-BuzzBallz stock (mixed cans, soft drinks…)
+  // Generic fallbacks for non-BuzzBallz stock (mixed cans, wine, soft drinks…)
+  [/white\s*wine/i, "#e6d98f"],            // canned white wine — pale straw
+  [/red\s*wine/i, "#7d1f2f"],              // canned red wine — burgundy
   [/lemon/i, "#ffd400"],
   [/blue\s*rasp|blueberr|blue/i, "#1e90ff"],
   [/orange/i, "#ff8c00"],

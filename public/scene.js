@@ -19,6 +19,12 @@ const FRAME_MS = 1000 / 30;     // idle: a gentle bob doesn't need more, and it 
 const SCROLL_WAKE_MS = 250;     // while scrolling, render every frame so models track the cards
 const CAMERA_Z = 6;
 
+// Rare digital glitch — the models stutter/jump for a fraction of a second every
+// so often. Deliberately less frequent than the CRT/order glitch in app.js.
+const GLITCH_MIN_GAP_MS = 13_000;
+const GLITCH_MAX_GAP_MS = 30_000;
+const glitchGap = () => GLITCH_MIN_GAP_MS + Math.random() * (GLITCH_MAX_GAP_MS - GLITCH_MIN_GAP_MS);
+
 let renderer = null;
 let camera = null;
 let canvas = null;
@@ -26,6 +32,10 @@ let running = false;
 let rafId = null;
 let lastFrame = 0;
 let lastScrollAt = 0;
+let nextGlitchAt = 0;
+let glitchUntil = 0;
+let glitchKeys = new Set(); // which models glitch during the current burst
+let wasGlitching = false;
 let failed = false;
 
 // stockline key -> { scene, model, phase, sig }
@@ -241,13 +251,61 @@ function getEntry(el) {
 
 // ── Render loop ─────────────────────────────────────────────────────────────
 
+// Pick 1–3 of the on-screen models to glitch for one burst.
+function pickGlitchSubset() {
+  const keys = [...document.querySelectorAll(".product-3d")].map(el => el.dataset.key || el.dataset.model);
+  const set = new Set();
+  if (!keys.length) return set;
+  const n = Math.min(keys.length, 1 + Math.floor(Math.random() * 3));
+  while (set.size < n) set.add(keys[Math.floor(Math.random() * keys.length)]);
+  return set;
+}
+
+// Corrupt a model's look mid-glitch: flicker to wireframe and flash random
+// emissive colours across its meshes. Cheap — runs on 1–3 models for ~300ms.
+function corruptModel(model) {
+  model.traverse(o => {
+    if (!o.isMesh || !o.material) return;
+    o.material.wireframe = Math.random() < 0.4;
+    if (o.material.emissive) {
+      if (Math.random() < 0.3) o.material.emissive.setRGB(Math.random(), Math.random(), Math.random());
+      else o.material.emissive.setRGB(0, 0, 0);
+    }
+  });
+}
+
+// Restore the burst's models to normal materials once the glitch ends.
+function clearCorruption() {
+  for (const key of glitchKeys) {
+    const entry = entries.get(key);
+    if (!entry) continue;
+    entry.model.traverse(o => {
+      if (!o.isMesh || !o.material) return;
+      o.material.wireframe = false;
+      if (o.material.emissive) o.material.emissive.setRGB(0, 0, 0);
+    });
+  }
+}
+
 function loop(now) {
   if (!running) return;
   rafId = requestAnimationFrame(loop);
-  // Render every frame while scrolling so models stay glued to their cards;
+
+  // Trigger the occasional glitch burst — only a random few models each time.
+  if (nextGlitchAt === 0) nextGlitchAt = now + glitchGap();
+  if (now >= glitchUntil && now >= nextGlitchAt) {
+    glitchUntil = now + 160 + Math.random() * 300; // 160–460ms burst
+    nextGlitchAt = now + glitchGap();
+    glitchKeys = pickGlitchSubset();
+  }
+  const glitching = now < glitchUntil;
+  if (wasGlitching && !glitching) clearCorruption(); // burst just ended → restore materials
+  wasGlitching = glitching;
+
+  // Render every frame while scrolling or glitching so motion stays smooth;
   // throttle to 30fps when idle to spare the Pi.
   const scrolling = now - lastScrollAt < SCROLL_WAKE_MS;
-  if (!scrolling && now - lastFrame < FRAME_MS) return;
+  if (!scrolling && !glitching && now - lastFrame < FRAME_MS) return;
   lastFrame = now;
 
   const time = now / 1000;
@@ -273,6 +331,7 @@ function loop(now) {
     if (bottom <= top || right <= left) continue; // fully off-screen / clipped
 
     const entry = getEntry(el);
+    const key = el.dataset.key || el.dataset.model;
 
     // Viewport = full card rect (keeps the model un-squished); scissor = clipped.
     renderer.setViewport(r.left, viewH - r.bottom, r.width, r.height);
@@ -280,10 +339,31 @@ function loop(now) {
     camera.aspect = r.width / r.height;
     camera.updateProjectionMatrix();
 
+    // Glitch burst: jitter rotation/position/scale per frame, with the odd
+    // dropped frame so the model flickers out. Otherwise reset to a clean bob.
+    let jrot = 0;
+    let jx = 0;
+    let jy = 0;
+    let sx = 1;
+    let sy = 1;
+    let sz = 1;
+    if (glitching && glitchKeys.has(key)) {
+      if (Math.random() < 0.22) continue; // dropout flicker — skip this card's draw
+      jrot = (Math.random() - 0.5) * 0.9;
+      jx = (Math.random() - 0.5) * 0.5;
+      jy = (Math.random() - 0.5) * 0.5;
+      sx = 1 + (Math.random() - 0.5) * 0.8; // non-uniform warp — stretches/squashes the model
+      sy = 1 + (Math.random() - 0.5) * 0.8;
+      sz = 1 + (Math.random() - 0.5) * 0.8;
+      corruptModel(entry.model);            // wireframe flicker + emissive RGB flashes
+    }
+
     const m = entry.model;
-    m.rotation.y = time * 0.6 + entry.phase;
-    m.rotation.x = Math.sin(time * 0.8 + entry.phase) * 0.12;
-    m.position.y = Math.sin(time * 1.4 + entry.phase) * 0.14;
+    m.rotation.y = time * 0.6 + entry.phase + jrot;
+    m.rotation.x = Math.sin(time * 0.8 + entry.phase) * 0.12 + jrot * 0.5;
+    m.position.x = jx;
+    m.position.y = Math.sin(time * 1.4 + entry.phase) * 0.14 + jy;
+    m.scale.set(sx, sy, sz);
 
     renderer.render(entry.scene, camera);
   }
@@ -295,6 +375,8 @@ export function startScene() {
   running = true;
   canvas.style.display = "block";
   lastFrame = 0;
+  nextGlitchAt = 0; // reschedule the glitch fresh each time we wake
+  glitchUntil = 0;
   rafId = requestAnimationFrame(loop);
 }
 
