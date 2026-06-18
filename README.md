@@ -15,7 +15,7 @@ customer the order ref to take to a human-operated till.
 
 ## Runtime Shape
 
-- A Node.js server serves the kiosk UI on localhost (one runtime dependency: `qrcode` for slip generation).
+- A Node.js server serves the kiosk UI on localhost (one runtime dependency: `qrcode` for slip generation). Slip printing is complete — ESC/POS + QR raster via `src/slip.js`. **Outstanding before site:** slip logo artwork (`logoBytes()` in `slip.js` currently returns an empty buffer — add the Polybius/Space Bar logo bitmap there), and a physical test print on the U220A to verify QR scale.
 - The browser never sees the tillweb bearer token; the local server proxies API
   calls to tillweb.
 - Slips print through CUPS using `lp` by default.
@@ -66,7 +66,9 @@ Useful optional settings:
 
 Remote operations — required if the kiosk is unattended:
 
-- `KIOSK_OMS_URL`: base URL of the OMS server (e.g. `http://192.168.x.x:3000`). When set, printer errors are POSTed to `/api/printer-alert` so the OMS staff screen can alert bar staff. If not set, printer failures are visible on the kiosk screen but invisible to staff. Requires that the kiosk can reach the OMS server — confirm camp-network → VLAN routing with Luke before site.
+- `KIOSK_OMS_URL`: base URL of the OMS server (e.g. `http://192.168.x.x:8081`). When set, printer errors are POSTed to `/api/printer-alert` so the OMS staff screen can alert bar staff. If not set, printer failures are visible on the kiosk screen but invisible to staff. Requires that the kiosk can reach the OMS server — confirm camp-network → VLAN routing with Luke before site.
+- `KIOSK_LISTEN_HOST`: host to bind the local server, default `127.0.0.1`. Set to `0.0.0.0` if you need the kiosk UI reachable from another device.
+- `KIOSK_DUMMY_PRINT`: if `true`, renders the slip to a file in `/tmp` instead of sending to CUPS. Useful for testing slip layout without a printer; auto-enabled in mock mode when `KIOSK_PRINT_ENABLED=true`.
 
 ## Operations
 
