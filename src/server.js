@@ -40,7 +40,7 @@ function stockForClient(config, stock) {
   return {
     location: stock.location ?? config.location,
     expired_orders: stock.expired_orders ?? [],
-    items: (stock.items ?? []).filter(item => item.available === true)
+    items: stock.items ?? []
   };
 }
 
@@ -168,7 +168,7 @@ function mockStock(config) {
         available: true,
         available_quantity: "48",
         available_display: "48"
-      }
+      },
     ]
   };
 }

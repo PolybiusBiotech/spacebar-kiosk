@@ -90,18 +90,17 @@ test("healthz returns ok in mock mode", async () => {
 
 // ── /api/stock ─────────────────────────────────────────────────────────────
 
-test("stock endpoint returns available items in mock mode", async () => {
+test("stock endpoint returns items in mock mode", async () => {
   const server = createServer(MOCK_CONFIG);
   const res = await request(server, { url: "/api/stock" });
   const body = JSON.parse(res.body);
   assert.equal(res.statusCode, 200);
   assert.ok(Array.isArray(body.items), "items is array");
   assert.ok(body.items.length > 0, "has items");
-  assert.ok(body.items.every(item => item.available === true), "only available items");
   assert.ok(body.items.every(item => item.stockline_id), "each item has stockline_id");
 });
 
-test("stock endpoint excludes items with available=false", async () => {
+test("stock endpoint passes through unavailable items with available=false", async () => {
   const getStock = () => ({
     location: "spacebar",
     expired_orders: [],
@@ -114,53 +113,29 @@ test("stock endpoint excludes items with available=false", async () => {
   const res = await request(server, { url: "/api/stock" });
   const body = JSON.parse(res.body);
   assert.equal(res.statusCode, 200);
-  assert.equal(body.items.length, 1, "only one item returned");
-  assert.equal(body.items[0].stockline_id, 1, "the available item");
-  assert.ok(!body.items.find(i => i.name === "Sold Out"), "out-of-stock item absent");
-});
-
-test("stock endpoint returns empty items array when everything is out of stock", async () => {
-  const getStock = () => ({
-    location: "spacebar",
-    expired_orders: [],
-    items: [
-      { stockline_id: 1, name: "Sold Out A", available: false, price: "2.80" },
-      { stockline_id: 2, name: "Sold Out B", available: false, price: "4.50" }
-    ]
-  });
-  const server = createServer(MOCK_CONFIG, { getStock });
-  const res = await request(server, { url: "/api/stock" });
-  const body = JSON.parse(res.body);
-  assert.equal(res.statusCode, 200);
-  assert.deepEqual(body.items, [], "empty items when all sold out");
+  assert.equal(body.items.length, 2, "both items returned");
+  assert.equal(body.items.find(i => i.stockline_id === 1)?.available, true);
+  assert.equal(body.items.find(i => i.stockline_id === 2)?.available, false);
 });
 
 test("stock endpoint reflects a product going out of stock between polls", async () => {
-  let stocklineUnits = "3";
+  let available = true;
   const getStock = () => ({
     location: "spacebar",
     expired_orders: [],
-    items: [
-      {
-        stockline_id: 99,
-        name: "Last Ones",
-        available: Number.parseInt(stocklineUnits, 10) > 0,
-        price: "3.00"
-      }
-    ]
+    items: [{ stockline_id: 99, name: "Last Ones", available, price: "3.00" }]
   });
 
   const server = createServer(MOCK_CONFIG, { getStock });
 
-  const firstPoll = await request(server, { url: "/api/stock" });
-  const firstBody = JSON.parse(firstPoll.body);
-  assert.equal(firstBody.items.length, 1, "product present before selling out");
+  const firstBody = JSON.parse((await request(server, { url: "/api/stock" })).body);
+  assert.equal(firstBody.items[0].available, true, "available before selling out");
 
-  stocklineUnits = "0";
+  available = false;
 
-  const secondPoll = await request(server, { url: "/api/stock" });
-  const secondBody = JSON.parse(secondPoll.body);
-  assert.equal(secondBody.items.length, 0, "product absent after selling out");
+  const secondBody = JSON.parse((await request(server, { url: "/api/stock" })).body);
+  assert.equal(secondBody.items[0].available, false, "marked unavailable after selling out");
+  assert.equal(secondBody.items.length, 1, "item still present in response");
 });
 
 test("stock endpoint returns 503 when not configured and not in mock mode", async () => {

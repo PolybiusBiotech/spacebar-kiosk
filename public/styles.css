@@ -835,8 +835,17 @@ body.a11y-mode .btn-primary {
 
 .add:disabled {
   background: #1a001a;
-  color: #5a005a;
+  color: #7a3a7a;
   cursor: not-allowed;
+}
+
+.product--sold-out {
+  opacity: 0.55;
+  border-color: #0a1e0a;
+}
+
+.product--sold-out:active {
+  transform: none;
 }
 
 /* ── Quantity stepper ─────────────────────────────────────── */

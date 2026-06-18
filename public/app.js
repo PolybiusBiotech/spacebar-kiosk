@@ -290,8 +290,10 @@ function getCategories() {
 }
 
 function visibleProducts() {
-  if (!state.activeCategory) return state.products;
-  return state.products.filter(p => productCategory(p) === state.activeCategory);
+  const list = state.activeCategory
+    ? state.products.filter(p => productCategory(p) === state.activeCategory)
+    : state.products;
+  return [...list].sort((a, b) => (a.available === false) - (b.available === false));
 }
 
 async function loadConfig() { state.config = await jsonFetch("/api/config"); }
@@ -408,7 +410,7 @@ function renderProduct(product) {
   const key = productKey(product.stockline_id);
   const qty = state.basket.get(key) || 0;
   const limit = itemLimit(product);
-  const soldOut = limit <= 0;
+  const soldOut = product.available === false || limit <= 0;
   const atMax = qty >= limit;
   const descHtml = product.description
     ? `<p class="product-desc">${escapeHtml(product.description)}</p>`
@@ -423,7 +425,7 @@ function renderProduct(product) {
         ${soldOut ? 'Sold out' : 'Add'}
       </button>`;
   return `
-    <article class="product${hasImg ? ' product--has-img' : ''}">
+    <article class="product${hasImg ? ' product--has-img' : ''}${soldOut ? ' product--sold-out' : ''}">
       ${imgHtml}
       <div class="product-info">
         <h2 class="product-name">${escapeHtml(product.name)}</h2>
