@@ -159,7 +159,7 @@ export async function renderSlip(order) {
     Buffer.from("\n", "ascii"),
     t(""),
     ALIGN_CENTER,
-    await qrBytes(`KIOSK:${order.order_ref}`),
+    await qrBytes(order.barcode ?? `KIOSK:${order.order_ref}`),
     ALIGN_LEFT,
     t(""), t(""), t(""),
     FULL_CUT
