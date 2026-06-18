@@ -104,29 +104,26 @@ fails, the kiosk shows a staff/help state and does not create another order.
 
 ## Product Images and Metadata
 
-Product display metadata is stored in `public/products.json`, keyed by quicktill
-stockline ID. All fields are optional:
+Category tabs are derived automatically from the quicktill **department** field
+on each stocktype — no configuration needed. To change which tab a product
+appears under, change its department in quicktill.
+
+Product images are configured in `public/products.json`, keyed by quicktill
+stockline ID:
 
 ```json
 {
-  "42": {
-    "category": "Beer & Cider",
-    "image": "/images/products/some-beer.jpg"
-  },
-  "43": {
-    "category": "Soft Drinks"
-  }
+  "42": { "image": "/images/products/some-beer.jpg" },
+  "43": { "image": "/images/products/lemonade.jpg" }
 }
 ```
 
-| Field | Description |
-|---|---|
-| `category` | Tab label shown above the product grid. Products without a category still appear under "All". |
-| `image` | URL of a product image served by the kiosk server. Put image files in `public/images/products/` and reference them as `/images/products/filename.jpg`. Recommended size: at least 400 × 280 px (the card image area is 140 px tall, full card width). |
+Put image files in `public/images/products/` and reference them as
+`/images/products/filename.jpg`. Recommended size: at least 400 × 280 px (the
+card image area is 140 px tall, full card width). Products without an entry in
+`products.json` show without an image and still work fine.
 
-Stockline IDs come from the quicktill database (`stockline.id`). The kiosk logs
-a warning for any stockline it receives that isn't in `products.json`, but it
-will still show the product without an image or category.
+Stockline IDs come from the quicktill database (`stockline.id`).
 
 ## Tillweb API
 
