@@ -242,7 +242,7 @@ function renderProduct(product) {
   const hasImg = !!meta.image;
   const imgHtml = hasImg
     ? `<div class="product-img"><img src="${escapeHtml(meta.image)}" alt="" loading="lazy"></div>`
-    : `<div class="product-img product-img--none"></div>`;
+    : '';
   const key = productKey(product.stockline_id);
   const qty = state.basket.get(key) || 0;
   const limit = itemLimit(product);
