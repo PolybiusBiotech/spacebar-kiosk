@@ -6,6 +6,13 @@
 // Requires the `qrcode` npm package.
 
 import QRCode from "qrcode";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
+
+const __dir = dirname(fileURLToPath(import.meta.url));
+const LOGO_BMP = resolve(__dir, "../../design/poly claw.bmp");
+const LOGO_WIDTH_PX = 160;
 
 const COLS = 42; // characters per line at standard density on 76mm paper
 
@@ -38,10 +45,48 @@ function itemLine(item) {
   return t(`${prefix}${desc} ${price}`);
 }
 
-// TODO LUKE: replace with actual logo bitmap.
-// Render a raster image via GS v 0 and concat it here.
+function buildLogoBytes() {
+  try {
+    const result = spawnSync("magick", [
+      LOGO_BMP,
+      "-resize", `${LOGO_WIDTH_PX}x`,
+      "-depth", "1",
+      "pbm:-",
+    ], { maxBuffer: 4 * 1024 * 1024 });
+
+    if (result.status !== 0 || !result.stdout?.length) return Buffer.alloc(0);
+
+    const pbm = result.stdout;
+    let pos = 0;
+    const headerLines = [];
+    while (headerLines.length < 2 && pos < pbm.length) {
+      const nl = pbm.indexOf(0x0A, pos);
+      if (nl === -1) break;
+      const line = pbm.slice(pos, nl).toString("ascii").trim();
+      pos = nl + 1;
+      if (!line.startsWith("#")) headerLines.push(line);
+    }
+    if (headerLines[0] !== "P4") return Buffer.alloc(0);
+    const [w, h] = headerLines[1].split(/\s+/).map(Number);
+    const bytesPerRow = Math.ceil(w / 8);
+    const raster = pbm.slice(pos, pos + bytesPerRow * h);
+
+    return Buffer.concat([
+      Buffer.from([GS, 0x76, 0x30, 0x00,
+        bytesPerRow & 0xFF, (bytesPerRow >> 8) & 0xFF,
+        h & 0xFF, (h >> 8) & 0xFF]),
+      raster,
+    ]);
+  } catch {
+    return Buffer.alloc(0);
+  }
+}
+
+// Built once at module load — falls back to empty if ImageMagick unavailable.
+const LOGO_ESC_POS = buildLogoBytes();
+
 function logoBytes() {
-  return Buffer.alloc(0);
+  return LOGO_ESC_POS;
 }
 
 async function qrBytes(content, scale = 4) {
@@ -90,7 +135,9 @@ export async function renderSlip(order) {
     INIT,
     ALIGN_CENTER,
     logoBytes(),
-    // TODO LUKE: remove blank line below once logo has its own vertical spacing
+    t(""),
+    t("POLYBIUS SPACE BAR"),
+    t("Spaceport PB-4242"),
     t(""),
     t(orderName),
     ALIGN_LEFT,

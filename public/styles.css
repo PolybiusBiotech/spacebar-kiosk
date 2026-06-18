@@ -1,4 +1,10 @@
 @font-face {
+  font-family: 'PermanentMarker';
+  src: url('/fonts/permanent-marker.woff2') format('woff2');
+  font-weight: 400;
+}
+
+@font-face {
   font-family: 'Eurostile';
   src: url('/fonts/eurostile.ttf') format('truetype');
   font-weight: 400;
@@ -84,19 +90,93 @@ body {
   z-index: 1;
 }
 
-
 .sleep-content {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2rem;
+  gap: 1.75rem;
   z-index: 2;
   position: relative;
 }
 
-.sleep-logo {
-  width: min(75vw, 420px);
+.sleep-claw {
+  width: min(42vw, 210px);
   display: block;
+  filter: drop-shadow(0 0 18px rgba(124, 193, 66, 0.35));
+}
+
+/* POLYBIUS / Base Asset Retrieval — stacked brand block */
+.sleep-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3em;
+}
+
+.sleep-brand-polybius {
+  font-family: 'EurostileExt', 'Eurostile', sans-serif;
+  font-weight: 700;
+  font-size: clamp(0.65rem, 2vw, 1rem);
+  color: rgba(124, 193, 66, 0.55);
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+/* ── Shared bar-lockup: "Base Asset Retrieval" with B/A/R enlarged ── */
+.bar-lockup {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.bar-lockup-text {
+  font-family: 'EurostileExt', 'Eurostile', sans-serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  color: rgba(124, 193, 66, 0.5);
+}
+
+.bar-initial {
+  color: #7CC142;
+  font-size: 2.4em;
+  line-height: 0.85;
+  vertical-align: -0.1em;
+  letter-spacing: 0.02em;
+}
+
+/* Sleep screen: larger overall */
+.sleep-brand .bar-lockup-text {
+  font-size: clamp(0.75rem, 2.5vw, 1.4rem);
+}
+
+/* "space" — spray-painted to the LEFT of "Base Asset Retrieval" */
+.sleep-title-unofficial {
+  font-family: 'PermanentMarker', cursive;
+  font-weight: 400;
+  font-size: clamp(1.6rem, 5vw, 2.8rem);
+  text-transform: none;
+  color: #FCA311;
+  position: absolute;
+  right: calc(100% + 0.4em);
+  top: 50%;
+  transform: translateY(-55%) rotate(-4deg);
+  filter: url(#spray-paint) drop-shadow(0 0 14px rgba(252,163,17,0.7)) drop-shadow(0 0 30px rgba(252,163,17,0.3));
+  white-space: nowrap;
+}
+
+/* Original corporate subtitle — "Base Asset Retrieval" */
+.sleep-brand-sub {
+  font-family: 'Eurostile', sans-serif;
+  font-weight: 400;
+  font-size: clamp(0.6rem, 1.8vw, 0.95rem);
+  color: rgba(124, 193, 66, 0.45);
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  margin-top: 0.3em;
+  padding-left: 0.1em;
 }
 
 .sleep-prompt {
@@ -109,6 +189,381 @@ body {
   animation: glow-pulse 2s ease-in-out infinite;
 }
 
+/* ── Topbar "space" graffiti ──────────────────────────────── */
+
+.space-graffiti {
+  font-family: 'PermanentMarker', cursive;
+  font-weight: 400;
+  font-style: normal;
+  text-transform: none;
+  color: #FCA311;
+  letter-spacing: 0;
+  display: inline-block;
+  transform: rotate(-3deg) translateY(2px);
+  filter: url(#spray-paint) drop-shadow(0 0 10px rgba(252,163,17,0.65)) drop-shadow(0 0 24px rgba(252,163,17,0.25));
+}
+
+/* ── Accessibility mode ───────────────────────────────────── */
+
+.a11y-btn {
+  position: fixed;
+  bottom: 0.875rem;
+  right: 0.875rem;
+  background: rgba(0, 12, 0, 0.85);
+  border: 1px solid rgba(124, 193, 66, 0.2);
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  font-size: 1.3rem;
+  cursor: pointer;
+  z-index: 2000;
+  color: rgba(124, 193, 66, 0.35);
+  transition: color 0.15s, border-color 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.a11y-btn:active { color: #7CC142; border-color: rgba(124, 193, 66, 0.7); }
+
+body.a11y-mode .a11y-btn {
+  color: #7CC142;
+  border-color: rgba(124, 193, 66, 0.5);
+  /* Move to left so it doesn't overlap the basket's Confirm Order button */
+  right: auto;
+  left: 0.875rem;
+}
+
+/* Constrain sleep/status screens to the a11y strip */
+body.a11y-mode .sleep,
+body.a11y-mode .status-screen {
+  position: absolute;
+}
+
+/* Compact landscape strip pinned to the bottom ~40% of the screen */
+body.a11y-mode #app {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100vw;
+  height: 42dvh;
+  overflow: hidden;
+}
+
+body.a11y-mode .kiosk {
+  grid-template-rows: none;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  height: 100%;
+}
+
+body.a11y-mode .products {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 6px 8px;
+  gap: 6px;
+}
+
+/* Hide product images — not useful in compact a11y mode */
+body.a11y-mode .product-img { display: none; }
+
+body.a11y-mode .product-info {
+  padding: 8px 10px 2px;
+}
+
+body.a11y-mode .product-name {
+  font-size: 0.9rem;
+}
+
+body.a11y-mode .product-desc {
+  font-size: 0.75rem;
+}
+
+body.a11y-mode .product-footer {
+  padding: 4px 10px 8px;
+}
+
+body.a11y-mode .price {
+  font-size: 1.1rem;
+}
+
+body.a11y-mode .product-footer {
+  flex-wrap: wrap;
+  padding: 4px 8px 8px;
+  gap: 4px;
+}
+
+body.a11y-mode .product .quantity button {
+  width: 28px;
+  height: 28px;
+  font-size: 1rem;
+}
+
+body.a11y-mode .topbar {
+  padding: 5px 10px;
+}
+
+body.a11y-mode .topbar h1 {
+  font-size: 0.95rem;
+}
+
+body.a11y-mode .tabs {
+  padding: 0 10px;
+}
+
+body.a11y-mode .tab {
+  font-size: 0.8rem;
+  padding: 6px 12px;
+  min-height: 36px;
+}
+
+body.a11y-mode .basket {
+  padding: 6px 10px 8px;
+  gap: 4px;
+}
+
+body.a11y-mode .basket h2 {
+  font-size: 0.95rem;
+}
+
+body.a11y-mode .checkout {
+  min-height: 38px;
+  font-size: 0.95rem;
+}
+
+body.a11y-mode .status-screen {
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+}
+
+body.a11y-mode .status-screen h1 {
+  font-size: clamp(1.1rem, 3vw, 1.6rem);
+}
+
+body.a11y-mode .status-screen p {
+  font-size: 0.85rem;
+}
+
+body.a11y-mode .order-number {
+  font-size: clamp(1.6rem, 5vw, 2.8rem);
+  padding: 0.2em 0.6em;
+}
+
+body.a11y-mode .btn-primary {
+  min-height: 38px;
+  font-size: 0.95rem;
+  padding: 8px 28px;
+}
+
+/* ── Glitch system ────────────────────────────────────────── */
+
+/* ── Sleep screen — scanline bar ── */
+.sleep::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent 5%, rgba(190,0,254,0.85) 25%, rgba(124,193,66,0.65) 65%, transparent 95%);
+  top: 40%;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 3;
+  transform: scaleX(0);
+  transform-origin: left;
+}
+
+@keyframes glitch-scanline {
+  0%   { opacity: 0;   transform: scaleX(0);                        top: 40%; }
+  4%   { opacity: 1;   transform: scaleX(1);                        top: 36%; }
+  7%   { opacity: 0.6; transform: scaleX(0.5) translateX(80px);     top: 44%; }
+  11%  { opacity: 1;   transform: scaleX(1);                        top: 20%; }
+  15%  { opacity: 0.4; transform: scaleX(0.7) translateX(-30px);    top: 65%; }
+  19%  { opacity: 0.9; transform: scaleX(0.9);                      top: 10%; }
+  26%  { opacity: 0; }
+  100% { opacity: 0;   transform: scaleX(0); }
+}
+
+.sleep.glitching::before {
+  animation: glitch-scanline 0.7s linear forwards;
+}
+
+/* ── Sleep screen — content jerk + chromatic (very intense) ── */
+@keyframes glitch-content {
+  0%   { transform: translate(0, 0);       filter: none; opacity: 1; }
+  3%   { transform: translate(-32px, 3px); filter: drop-shadow(12px 0 0 rgba(255,0,128,1)) drop-shadow(-12px 0 0 rgba(0,220,255,1)); }
+  6%   { transform: translate(26px,-4px);  filter: drop-shadow(-10px 0 0 rgba(255,0,128,0.9)) drop-shadow(10px 0 0 rgba(0,220,255,0.9)); }
+  9%   { transform: translate(-18px, 2px); filter: drop-shadow(7px 0 0 rgba(255,0,128,0.6)) drop-shadow(-7px 0 0 rgba(0,220,255,0.6)); }
+  12%  { transform: translate(12px,-2px);  filter: none; }
+  15%  { transform: translate(-6px, 0); }
+  18%  { transform: translate(0, 0); }
+  50%  { opacity: 1; }
+  52%  { opacity: 0;    transform: translate(14px, 0); filter: drop-shadow(-8px 0 0 rgba(0,220,255,0.9)); }
+  53%  { opacity: 1;    transform: translate(0, 0);    filter: none; }
+  55%  { opacity: 0.2;  transform: translate(-10px, 0); filter: drop-shadow(6px 0 0 rgba(255,0,128,0.8)); }
+  56%  { opacity: 1;    transform: translate(0, 0);    filter: none; }
+  58%  { opacity: 0;    transform: translate(8px, 0); }
+  59%  { opacity: 1;    transform: translate(0, 0); }
+  75%  { opacity: 1; }
+  76%  { opacity: 0;    transform: translate(-5px, 0); }
+  77%  { opacity: 1;    transform: translate(0, 0); }
+  100% { transform: translate(0, 0); filter: none; opacity: 1; }
+}
+
+.sleep.glitching .sleep-content {
+  animation: glitch-content 0.7s linear forwards;
+}
+
+/* ── Sleep screen — micro-glitch (rapid fire, frequent) ── */
+@keyframes micro-glitch {
+  0%   { filter: none; opacity: 1; transform: translate(0, 0); }
+  6%   { filter: hue-rotate(180deg) brightness(2) drop-shadow(6px 0 0 rgba(255,0,128,0.9)); opacity: 0.7; transform: translate(8px, 0); }
+  10%  { filter: none; opacity: 1; transform: translate(-6px, 0); }
+  14%  { filter: hue-rotate(-90deg) brightness(1.5); transform: translate(4px, 0); opacity: 0.8; }
+  18%  { transform: translate(0, 0); filter: none; opacity: 1; }
+  55%  { opacity: 1; }
+  57%  { opacity: 0; transform: translate(6px, 0); }
+  59%  { opacity: 1; transform: translate(0, 0); }
+  100% { filter: none; opacity: 1; transform: translate(0, 0); }
+}
+
+.sleep.micro-glitching .sleep-content {
+  animation: micro-glitch 0.3s linear forwards;
+}
+
+/* ── Order screen glitch ── */
+.kiosk::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent 5%, rgba(124,193,66,0.7) 30%, rgba(190,0,254,0.55) 70%, transparent 95%);
+  top: 30%;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 200;
+  transform: scaleX(0);
+  transform-origin: right;
+}
+
+@keyframes order-scanline {
+  0%   { opacity: 0;   transform: scaleX(0);                     top: 30%; }
+  5%   { opacity: 0.9; transform: scaleX(1);                     top: 27%; }
+  10%  { opacity: 0.4; transform: scaleX(0.55) translateX(-50px); top: 35%; }
+  17%  { opacity: 0.8; transform: scaleX(0.85);                  top: 15%; }
+  25%  { opacity: 0; }
+  100% { opacity: 0;   transform: scaleX(0); }
+}
+
+.kiosk.glitching::before {
+  animation: order-scanline 0.4s linear forwards;
+}
+
+/* H-only: chromatic tear, horizontal displacement */
+@keyframes order-glitch-h {
+  0%   { transform: translate(0, 0) skewX(0); filter: none; opacity: 1; }
+  8%   { transform: translate(-28px, 0) skewX(-5deg); filter: drop-shadow(11px 0 0 rgba(255,0,128,0.95)) drop-shadow(-11px 0 0 rgba(0,220,255,0.95)); }
+  18%  { transform: translate(22px, 0) skewX(4deg); filter: drop-shadow(-9px 0 0 rgba(255,0,128,0.85)) drop-shadow(9px 0 0 rgba(0,220,255,0.85)); }
+  26%  { transform: translate(0, 0) skewX(0); filter: none; }
+  /* H flicker */
+  55%  { opacity: 1; }
+  58%  { opacity: 0;   transform: translate(18px, 0) skewX(-3deg); filter: drop-shadow(-9px 0 0 rgba(0,220,255,0.9)); }
+  62%  { opacity: 1;   transform: translate(0, 0); filter: none; }
+  66%  { opacity: 0;   transform: translate(-11px, 0) skewX(-2deg); }
+  70%  { opacity: 1;   transform: translate(0, 0); }
+  100% { transform: translate(0, 0) skewX(0); filter: none; opacity: 1; }
+}
+
+/* V-only: vertical jump, frame sync error */
+@keyframes order-glitch-v {
+  0%   { transform: translate(0, 0) scaleY(1); filter: none; opacity: 1; }
+  10%  { transform: translate(0, -16px) scaleY(1.04); filter: drop-shadow(0 8px 0 rgba(255,0,128,0.35)) drop-shadow(0 -8px 0 rgba(0,220,255,0.35)); }
+  20%  { transform: translate(0, 11px) scaleY(0.97); filter: none; }
+  30%  { transform: translate(0, 0) scaleY(1); }
+  /* V flicker */
+  60%  { opacity: 1; }
+  63%  { opacity: 0.2; transform: translate(0, 13px); }
+  67%  { opacity: 1;   transform: translate(0, 0); }
+  80%  { opacity: 1; }
+  83%  { opacity: 0;   transform: translate(0, -6px); }
+  87%  { opacity: 1;   transform: translate(0, 0); }
+  100% { transform: translate(0, 0) scaleY(1); filter: none; opacity: 1; }
+}
+
+/* H fires on .catalog, V fires on .catalog-v — independent elements, no CSS conflict */
+.kiosk.glitching-h .catalog   { animation: order-glitch-h 0.55s linear forwards; }
+.kiosk.glitching-v .catalog-v { animation: order-glitch-v 0.55s linear forwards; }
+
+/* ── Order: full-screen colour flash overlay ── */
+.kiosk::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 300;
+}
+
+@keyframes order-flash-anim {
+  0%   { opacity: 0;    background: transparent; }
+  6%   { opacity: 0.55; background: rgba(124,193,66,0.45); }
+  11%  { opacity: 0.8;  background: rgba(190,0,254,0.35); }
+  16%  { opacity: 0.4;  background: rgba(255,255,255,0.12); }
+  22%  { opacity: 0.65; background: rgba(0,220,255,0.3); }
+  35%  { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+.kiosk.order-flash::after {
+  animation: order-flash-anim 0.22s linear forwards;
+}
+
+/* ── Order: rapid strobe flicker ── */
+@keyframes order-strobe-anim {
+  0%   { opacity: 1; transform: translate(0,0); filter: none; }
+  5%   { opacity: 0; }
+  /* H only — snap back to zero before V */
+  8%   { opacity: 1; transform: translate(-14px, 0) skewX(-4deg); filter: drop-shadow(9px 0 0 rgba(255,0,128,0.95)); }
+  10%  { opacity: 0; transform: translate(0, 0); }
+  /* V only — zero X guaranteed */
+  12%  { opacity: 0; transform: translate(0, -12px); }
+  14%  { opacity: 1; transform: translate(0, 8px) skewX(-2deg); filter: drop-shadow(-7px 0 0 rgba(0,220,255,0.9)); }
+  16%  { opacity: 0; transform: translate(0, 0); filter: none; }
+  /* H only settle */
+  19%  { opacity: 1; transform: translate(6px, 0); }
+  22%  { opacity: 0; transform: translate(0, 0); }
+  25%  { opacity: 1; }
+  50%  { opacity: 1; }
+  /* H only flicker */
+  52%  { opacity: 0; transform: translate(14px, 0) skewX(-3deg); }
+  54%  { opacity: 1; transform: translate(0, 0) skewX(0); }
+  /* accidental H+V */
+  56%  { opacity: 0; transform: translate(-9px, 6px); }
+  58%  { opacity: 1; transform: translate(0, 0); }
+  100% { opacity: 1; transform: translate(0,0); filter: none; }
+}
+
+.kiosk.order-strobe .catalog {
+  animation: order-strobe-anim 0.38s linear forwards;
+}
+
+/* ── Order: filter scramble (invert + hue-rotate) ── */
+@keyframes order-scramble-anim {
+  0%   { filter: none; transform: translate(0,0); opacity: 1; }
+  8%   { filter: invert(1) hue-rotate(90deg) brightness(1.6); transform: translate(6px,0); opacity: 0.9; }
+  13%  { filter: invert(1) hue-rotate(200deg) saturate(3); transform: translate(-6px,0); }
+  18%  { filter: invert(0.6) hue-rotate(300deg); transform: translate(4px,0); opacity: 0.7; }
+  24%  { filter: none; transform: translate(0,0); opacity: 1; }
+  60%  { opacity: 1; }
+  62%  { opacity: 0; filter: invert(1); }
+  64%  { opacity: 1; filter: none; }
+  100% { filter: none; transform: translate(0,0); opacity: 1; }
+}
+
+.kiosk.order-scramble .catalog {
+  animation: order-scramble-anim 0.22s linear forwards;
+}
+
 /* ── Main kiosk layout ────────────────────────────────────── */
 
 .kiosk {
@@ -118,6 +573,7 @@ body {
   min-height: 0;
   width: 100vw;
   overflow: hidden;
+  position: relative;
 }
 
 /* ── Catalog / top half ───────────────────────────────────── */
@@ -126,8 +582,16 @@ body {
   display: flex;
   flex-direction: column;
   background: #000F00;
-  overflow: hidden;
   min-height: 0;
+  /* no overflow:hidden here — moved to .catalog-v so H/V glitch transforms can escape */
+}
+
+.catalog-v {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .topbar {
@@ -142,9 +606,30 @@ body {
 .topbar h1 {
   font-family: 'EurostileExt', 'Eurostile', sans-serif;
   font-weight: 700;
-  font-size: clamp(1.2rem, 3.5vw, 2rem);
   color: #7CC142;
   line-height: 1;
+}
+
+/* Topbar: compact bar-lockup size + "space" floating left */
+.topbar .bar-lockup-text {
+  font-size: clamp(0.45rem, 1.3vw, 0.65rem);
+}
+
+/* Topbar brand: "space" as a flex sibling (avoids overflow clipping) */
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  font-family: 'EurostileExt', 'Eurostile', sans-serif;
+  font-weight: 700;
+  color: #7CC142;
+  line-height: 1;
+}
+
+.topbar-space {
+  font-size: clamp(0.9rem, 2.5vw, 1.4rem);
+  transform: rotate(-3deg) translateY(1px);
+  flex-shrink: 0;
 }
 
 .topbar p {
@@ -557,6 +1042,14 @@ body {
   line-height: 1.5;
 }
 
+.complete-label {
+  font-family: 'Eurostile', ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(0.6rem, 1.5vw, 0.75rem);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(124, 193, 66, 0.45);
+}
+
 .order-number {
   background: #001200;
   border: 1px solid #BE00FE;
@@ -568,7 +1061,17 @@ body {
   border-radius: 8px;
   padding: 0.3em 0.8em;
   line-height: 1.1;
+  animation: order-num-breathe 3.5s ease-in-out infinite;
 }
+
+@keyframes order-num-breathe {
+  0%, 100% { box-shadow: 0 0 20px rgba(190,0,254,0.3), 0 0 60px rgba(190,0,254,0.1); }
+  50%       { box-shadow: 0 0 35px rgba(190,0,254,0.65), 0 0 90px rgba(190,0,254,0.25), 0 0 140px rgba(190,0,254,0.08); }
+}
+
+/* Reuse existing glitch keyframes on the complete screen */
+.status-screen.complete.complete-glitch-h { animation: order-glitch-h 0.55s linear forwards; }
+.status-screen.complete.complete-glitch-v { animation: order-glitch-v 0.55s linear forwards; }
 
 .btn-primary {
   background: #BE00FE;
@@ -615,4 +1118,44 @@ body {
   .products {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+}
+
+/* ── CRT overlay ── */
+.crt-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  /* persistent faint scanlines */
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0,0,0,0.12) 0px,
+    rgba(0,0,0,0.12) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+/* sync bar — injected by JS, sits between the two rolling frames */
+.crt-sync-bar {
+  position: fixed;
+  left: -4px;
+  right: -4px;
+  height: 48px;
+  pointer-events: none;
+  z-index: 10001;
+  /* chromatic fringing: magenta above blanking, cyan below, phosphor glow */
+  background: linear-gradient(
+    to bottom,
+    transparent                   0px,
+    rgba(255, 20,  90, 0.22)      3px,
+    rgba(255, 20,  90, 0.08)      7px,
+    rgba(0,   0,   0,  1)        10px,
+    rgba(0,   0,   0,  1)        26px,
+    rgba(0,  220, 255, 0.18)     29px,
+    rgba(124, 193,  66, 0.09)    36px,
+    transparent                  48px
+  );
+  /* feTurbulence displacement makes the edges wavy/torn */
+  filter: url(#crt-noise);
 }

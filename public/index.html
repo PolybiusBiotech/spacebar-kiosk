@@ -13,6 +13,24 @@
         <p>Starting up...</p>
       </section>
     </main>
+    <!-- Outside #app so it is not affected by the a11y scale transform -->
+    <button class="a11y-btn" id="a11y-btn" title="Accessibility mode" aria-label="Accessibility mode">♿</button>
+    <!-- CRT overlay: persistent scanlines + intermittent rolling band -->
+    <div class="crt-overlay" id="crt-overlay" aria-hidden="true"></div>
     <script type="module" src="/app.js"></script>
+    <!-- SVG spray-paint filter — used by .space-graffiti and .sleep-title-unofficial -->
+    <svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+      <defs>
+        <filter id="spray-paint" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">
+          <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="4" seed="7" result="noise"/>
+          <feDisplacementMap in="SourceGraphic" in2="noise" scale="4" xChannelSelector="R" yChannelSelector="G"/>
+        </filter>
+        <!-- CRT sync-bar edge distortion: horizontal displacement via fractal noise -->
+        <filter id="crt-noise" x="-5%" y="-300%" width="110%" height="700%" color-interpolation-filters="sRGB">
+          <feTurbulence type="fractalNoise" baseFrequency="0.018 0.85" numOctaves="2" seed="13" result="noise"/>
+          <feDisplacementMap in="SourceGraphic" in2="noise" scale="22" xChannelSelector="R" yChannelSelector="G"/>
+        </filter>
+      </defs>
+    </svg>
   </body>
 </html>
