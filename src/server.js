@@ -61,7 +61,7 @@ function mockStock(config) {
       },
       {
         stockline_id: 102,
-        name: "BuzzBallz Chili Mango",
+        name: "BuzzBallz Chilli Mango",
         description: "200ml 15% ABV",
         category: "BuzzBallz",
         price: "4.50",
@@ -71,7 +71,7 @@ function mockStock(config) {
       },
       {
         stockline_id: 103,
-        name: "BuzzBallz Grape Crunch",
+        name: "BuzzBallz Berry Cherry Limeade",
         description: "200ml 15% ABV",
         category: "BuzzBallz",
         price: "4.50",
@@ -81,7 +81,7 @@ function mockStock(config) {
       },
       {
         stockline_id: 104,
-        name: "BuzzBallz Lemon Drop",
+        name: "BuzzBallz Tequila 'Rita",
         description: "200ml 15% ABV",
         category: "BuzzBallz",
         price: "4.50",
@@ -91,7 +91,7 @@ function mockStock(config) {
       },
       {
         stockline_id: 105,
-        name: "BuzzBallz Watermelon Smash",
+        name: "BuzzBallz Choc Tease",
         description: "200ml 15% ABV",
         category: "BuzzBallz",
         price: "4.50",
@@ -101,7 +101,7 @@ function mockStock(config) {
       },
       {
         stockline_id: 106,
-        name: "BuzzBallz Blue Raspberry",
+        name: "BuzzBallz Lotta Colada",
         description: "200ml 15% ABV",
         category: "BuzzBallz",
         price: "4.50",
@@ -111,7 +111,7 @@ function mockStock(config) {
       },
       {
         stockline_id: 107,
-        name: "BuzzBallz Peach Fuzz",
+        name: "BuzzBallz Espresso Martini",
         description: "200ml 15% ABV",
         category: "BuzzBallz",
         price: "4.50",
@@ -121,7 +121,7 @@ function mockStock(config) {
       },
       {
         stockline_id: 108,
-        name: "BuzzBallz Cran Bliss",
+        name: "BuzzBallz Passionfruit Martini",
         description: "200ml 15% ABV",
         category: "BuzzBallz",
         price: "4.50",

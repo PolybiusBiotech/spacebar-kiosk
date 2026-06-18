@@ -1,5 +1,5 @@
 {
-  "note": "Map quicktill stockline_id to optional display metadata. All fields are optional.",
+  "note": "Map quicktill stockline_id to optional display metadata. All fields are optional. model (can|ball|bottle) and color tune the bobbing 3D product model; see README.",
   "101": { "category": "Beer & Cider" },
   "102": { "category": "Beer & Cider" },
   "103": { "category": "Soft Drinks" },

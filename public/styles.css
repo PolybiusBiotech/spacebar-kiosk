@@ -265,8 +265,9 @@ body.a11y-mode .products {
   gap: 6px;
 }
 
-/* Hide product images — not useful in compact a11y mode */
-body.a11y-mode .product-img { display: none; }
+/* Hide product images / 3D models — not useful in compact a11y mode */
+body.a11y-mode .product-img,
+body.a11y-mode .product-3d { display: none; }
 
 body.a11y-mode .product-info {
   padding: 8px 10px 2px;
@@ -774,12 +775,23 @@ body.a11y-mode .btn-primary {
   display: block;
 }
 
+/* Slot the 3D canvas draws the bobbing product model into (see scene.js).
+   Stays empty in the DOM — a soft neon glow makes the model pop, and the
+   slot just reserves layout space the WebGL overlay renders on top of. */
+.product-3d {
+  height: 132px;
+  flex-shrink: 0;
+  border-radius: 6px 6px 0 0;
+  background: radial-gradient(circle at 50% 58%, rgba(190, 0, 254, 0.14), rgba(0, 24, 0, 0) 68%);
+}
+
 .product-info {
   padding: 14px 12px 4px;
   flex: 1;
 }
 
-.product--has-img .product-info {
+.product--has-img .product-info,
+.product--has-3d .product-info {
   padding: 10px 12px 4px;
 }
 
