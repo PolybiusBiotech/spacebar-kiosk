@@ -583,6 +583,7 @@ body.a11y-mode .btn-primary {
   flex-direction: column;
   background: #000F00;
   min-height: 0;
+  min-width: 0;
   /* no overflow:hidden here — moved to .catalog-v so H/V glitch transforms can escape */
 }
 
