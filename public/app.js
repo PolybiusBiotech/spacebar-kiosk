@@ -482,7 +482,8 @@ function render() {
   if (state.screen === 'out-of-service' || state.screen === 'complete' || state.screen === 'printer-error') {
     return;
   }
-  const scrollTop = app.querySelector('.products')?.scrollTop ?? 0;
+  const scrollTop  = app.querySelector('.products')?.scrollTop  ?? 0;
+  const scrollLeft = app.querySelector('.tabs')?.scrollLeft ?? 0;
   const categories = getCategories();
   const products = visibleProducts();
   const productsHtml = state.loading
@@ -511,6 +512,10 @@ function render() {
   if (scrollTop) {
     const el = app.querySelector('.products');
     if (el) el.scrollTop = scrollTop;
+  }
+  if (scrollLeft) {
+    const el = app.querySelector('.tabs');
+    if (el) el.scrollLeft = scrollLeft;
   }
 }
 

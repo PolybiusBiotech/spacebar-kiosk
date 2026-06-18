@@ -685,10 +685,13 @@ body.a11y-mode .btn-primary {
   border-bottom: 1px solid #0a3010;
   background: #000F00;
   flex-shrink: 0;
-  scrollbar-width: none;
+  scrollbar-width: thin;
+  scrollbar-color: #4a7a4a #001800;
 }
 
-.tabs::-webkit-scrollbar { display: none; }
+.tabs::-webkit-scrollbar { height: 3px; }
+.tabs::-webkit-scrollbar-track { background: #001800; }
+.tabs::-webkit-scrollbar-thumb { background: #4a7a4a; border-radius: 2px; }
 
 .tab {
   background: none;
