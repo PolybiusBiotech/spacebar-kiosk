@@ -121,6 +121,7 @@ body {
   letter-spacing: 0.28em;
   text-transform: uppercase;
   line-height: 1;
+  margin-bottom: 0.7em;
 }
 
 /* ── Shared bar-lockup: "Base Asset Retrieval" with B/A/R enlarged ── */
@@ -152,17 +153,19 @@ body {
   font-size: clamp(0.75rem, 2.5vw, 1.4rem);
 }
 
-/* "space" — spray-painted to the LEFT of "Base Asset Retrieval" */
+/* "space" — graffiti tagged over the upper-left corner of "Base Asset Retrieval" */
 .sleep-title-unofficial {
   font-family: 'PermanentMarker', cursive;
   font-weight: 400;
-  font-size: clamp(1.6rem, 5vw, 2.8rem);
+  font-size: clamp(2.2rem, 6.5vw, 4rem);
   text-transform: none;
   color: #FCA311;
   position: absolute;
-  right: calc(100% + 0.4em);
-  top: 50%;
-  transform: translateY(-55%) rotate(-4deg);
+  left: -0.95em;
+  top: 0;
+  transform: translateY(-44%) rotate(-14deg);
+  transform-origin: left center;
+  z-index: 3;
   filter: url(#spray-paint) drop-shadow(0 0 14px rgba(252,163,17,0.7)) drop-shadow(0 0 30px rgba(252,163,17,0.3));
   white-space: nowrap;
 }
