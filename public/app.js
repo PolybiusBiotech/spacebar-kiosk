@@ -215,7 +215,7 @@ function renderSleep() {
   return `
     <section class="sleep" data-wake>
       <div class="sleep-content">
-        <img class="sleep-logo" src="/images/logo-text.svg" alt="Polybius Space Bar">
+        <img class="sleep-logo" src="/images/logo-text.svg" alt="Polybius Space BAR">
         <p class="sleep-prompt">TOUCH TO ORDER</p>
       </div>
     </section>
@@ -320,6 +320,7 @@ function render() {
   if (state.screen === 'out-of-service' || state.screen === 'complete' || state.screen === 'printer-error') {
     return;
   }
+  const scrollTop = app.querySelector('.products')?.scrollTop ?? 0;
   const categories = getCategories();
   const products = visibleProducts();
   const productsHtml = state.loading
@@ -329,7 +330,7 @@ function render() {
     <div class="kiosk">
       <div class="catalog">
         <div class="topbar">
-          <h1>Polybius Space Bar</h1>
+          <h1>Polybius Space BAR</h1>
           <p>${escapeHtml(state.config?.location_name || '')}</p>
           <button class="refresh" data-refresh aria-label="Refresh menu">↺</button>
         </div>
@@ -340,6 +341,10 @@ function render() {
       ${renderBasket()}
     </div>
   `;
+  if (scrollTop) {
+    const el = app.querySelector('.products');
+    if (el) el.scrollTop = scrollTop;
+  }
 }
 
 function renderOutOfService(error) {

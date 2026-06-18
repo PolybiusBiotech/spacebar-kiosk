@@ -102,6 +102,32 @@ If stock changes while the customer is ordering, the kiosk refreshes the product
 list and asks them to review the basket. If the order is created but printing
 fails, the kiosk shows a staff/help state and does not create another order.
 
+## Product Images and Metadata
+
+Product display metadata is stored in `public/products.json`, keyed by quicktill
+stockline ID. All fields are optional:
+
+```json
+{
+  "42": {
+    "category": "Beer & Cider",
+    "image": "/images/products/some-beer.jpg"
+  },
+  "43": {
+    "category": "Soft Drinks"
+  }
+}
+```
+
+| Field | Description |
+|---|---|
+| `category` | Tab label shown above the product grid. Products without a category still appear under "All". |
+| `image` | URL of a product image served by the kiosk server. Put image files in `public/images/products/` and reference them as `/images/products/filename.jpg`. Recommended size: at least 400 × 280 px (the card image area is 140 px tall, full card width). |
+
+Stockline IDs come from the quicktill database (`stockline.id`). The kiosk logs
+a warning for any stockline it receives that isn't in `products.json`, but it
+will still show the product without an image or category.
+
 ## Tillweb API
 
 The kiosk server fetches products from the public EMF stockline API:
