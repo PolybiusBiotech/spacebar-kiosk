@@ -324,7 +324,7 @@ function notifyOmsOfPrinterError(config, message) {
   }).catch(() => {});
 }
 
-export function createServer(config) {
+export function createServer(config, { getStock: getStockOverride = null } = {}) {
   return http.createServer(async (req, res) => {
     const requestUrl = new URL(req.url, `http://${req.headers.host}`);
 
@@ -368,7 +368,9 @@ export function createServer(config) {
           sendJson(res, 503, { error: "misconfigured", message: "Kiosk is missing configuration.", missing });
           return;
         }
-        const stock = config.mockMode ? mockStock(config) : await fetchStock(config);
+        const stock = getStockOverride
+          ? await getStockOverride(config)
+          : (config.mockMode ? mockStock(config) : await fetchStock(config));
         sendJson(res, 200, stockForClient(config, stock));
         return;
       }
