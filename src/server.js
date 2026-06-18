@@ -191,11 +191,11 @@ function mockOrder(config, body) {
   const expires = new Date(now.getTime() + 15 * 60 * 1000);
 
   return {
-    order_ref: "ABC123",
-    order_name: "SB ABC123",
-    order_prefix: "SB",
+    order_ref: "9574",
+    order_name: "9574",
+    barcode: "KIOSK:9574381",
     location: config.location,
-    transaction_id: 1,
+    transaction_id: 9574,
     created: true,
     created_at: now.toISOString(),
     expires_at: expires.toISOString(),
@@ -204,7 +204,7 @@ function mockOrder(config, body) {
     total,
     lines,
     slip: {
-      title: "SB order ABC123",
+      title: "9574",
       created_at: now.toISOString(),
       expires_at: expires.toISOString(),
       unpaid: true,
