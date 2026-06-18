@@ -108,20 +108,26 @@ Category tabs are derived automatically from the quicktill **department** field
 on each stocktype — no configuration needed. To change which tab a product
 appears under, change its department in quicktill.
 
-Product images are configured in `public/products.json`, keyed by quicktill
-stockline ID:
+Per-product display overrides are configured in `public/products.json`, keyed
+by quicktill stockline ID:
 
 ```json
 {
-  "42": { "image": "/images/products/some-beer.jpg" },
+  "42": {
+    "image": "/images/products/some-beer.jpg",
+    "category": "Craft Beer"
+  },
   "43": { "image": "/images/products/lemonade.jpg" }
 }
 ```
 
-Put image files in `public/images/products/` and reference them as
-`/images/products/filename.jpg`. Recommended size: at least 400 × 280 px (the
-card image area is 140 px tall, full card width). Products without an entry in
-`products.json` show without an image and still work fine.
+| Field | Description |
+|---|---|
+| `image` | URL of a product image. Put files in `public/images/products/` and reference as `/images/products/filename.jpg`. Recommended: at least 400 × 280 px (card image area is 140 px tall). |
+| `category` | Overrides the quicktill department for tab assignment. Useful if the till department names don't match what you want shown on the kiosk, or to split one department across multiple tabs. |
+
+Both fields are optional. Products without an entry show without an image and
+use the quicktill department as their category.
 
 Stockline IDs come from the quicktill database (`stockline.id`).
 

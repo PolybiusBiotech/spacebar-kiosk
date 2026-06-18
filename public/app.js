@@ -122,13 +122,18 @@ function reconcileBasket() {
   }
 }
 
+function productCategory(product) {
+  return state.productMeta[productKey(product.stockline_id)]?.category ?? product.category ?? null;
+}
+
 function getCategories() {
   const seen = new Set();
   const cats = [];
   for (const p of state.products) {
-    if (p.category && !seen.has(p.category)) {
-      seen.add(p.category);
-      cats.push(p.category);
+    const cat = productCategory(p);
+    if (cat && !seen.has(cat)) {
+      seen.add(cat);
+      cats.push(cat);
     }
   }
   return cats;
@@ -136,7 +141,7 @@ function getCategories() {
 
 function visibleProducts() {
   if (!state.activeCategory) return state.products;
-  return state.products.filter(p => p.category === state.activeCategory);
+  return state.products.filter(p => productCategory(p) === state.activeCategory);
 }
 
 async function loadConfig() { state.config = await jsonFetch("/api/config"); }
