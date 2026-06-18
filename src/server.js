@@ -180,7 +180,7 @@ function mockOrder(config, body) {
     const unitPrice = product?.price ?? "0.00";
     const lineTotal = (Number.parseFloat(unitPrice) * item.qty).toFixed(2);
     return {
-      description: product?.description ?? `Stockline ${item.stockline_id}`,
+      description: product?.name ?? `Stockline ${item.stockline_id}`,
       quantity: item.qty,
       unit_price: unitPrice,
       line_total: lineTotal
