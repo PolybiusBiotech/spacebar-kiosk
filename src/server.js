@@ -428,6 +428,11 @@ export function createServer(config, { getStock: getStockOverride = null } = {})
       }
 
       if (req.method === "GET" || req.method === "HEAD") {
+        // In dummy/mock mode, also serve the receipts/ directory for preview
+        if (config.mockMode && req.url.startsWith("/receipts/")) {
+          await serveStatic({ ...config, publicDir: path.join(process.cwd(), ".") }, req, res);
+          return;
+        }
         await serveStatic(config, req, res);
         return;
       }

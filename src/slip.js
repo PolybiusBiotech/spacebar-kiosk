@@ -13,7 +13,7 @@ import { dirname, resolve } from "node:path";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const LOGO_BMP = resolve(__dir, "../../design/poly claw.bmp");
-const LOGO_WIDTH_PX = 160;
+const LOGO_WIDTH_PX = 80;
 
 function buildLogoDataUrl() {
   try {
@@ -26,7 +26,8 @@ function buildLogoDataUrl() {
 
 const LOGO_DATA_URL = buildLogoDataUrl();
 
-const COLS = 42; // characters per line at standard density on 76mm paper
+const COLS      = 42; // characters per line at standard density on 76mm paper
+const PRICE_COL =  7; // fixed price column width — right-aligned, fits up to £999.99
 
 const ESC = 0x1B;
 const GS  = 0x1D;
@@ -36,7 +37,22 @@ const ALIGN_LEFT   = Buffer.from([ESC, 0x61, 0x00]);
 const ALIGN_CENTER = Buffer.from([ESC, 0x61, 0x01]);
 const COLOR_RED    = Buffer.from([ESC, 0x72, 0x01]);
 const COLOR_BLACK  = Buffer.from([ESC, 0x72, 0x00]);
-const FULL_CUT     = Buffer.from([GS,  0x56, 0x41, 0x00]);
+const BOLD_ON       = Buffer.from([ESC, 0x45, 0x01]);
+const BOLD_OFF      = Buffer.from([ESC, 0x45, 0x00]);
+const DBLSTRIKE_ON  = Buffer.from([ESC, 0x47, 0x01]);
+const DBLSTRIKE_OFF = Buffer.from([ESC, 0x47, 0x00]);
+const UNDERLINE_ON  = Buffer.from([ESC, 0x2D, 0x01]);
+const UNDERLINE_OFF = Buffer.from([ESC, 0x2D, 0x00]);
+const SIZE_2X       = Buffer.from([GS,  0x21, 0x11]); // double width + double height
+const SIZE_3X       = Buffer.from([GS,  0x21, 0x22]); // triple width + triple height
+const SIZE_RESET    = Buffer.from([GS,  0x21, 0x00]);
+const LINE_SP_TIGHT = Buffer.from([ESC, 0x33, 0x00]); // ESC 3 0 — zero inter-line spacing
+const LINE_SP_RESET = Buffer.from([ESC, 0x32]);       // ESC 2 — restore default 1/6" spacing
+const ITALIC_ON     = Buffer.from([ESC, 0x34]);        // ESC 4 — italic (may be silently ignored on U220A)
+const ITALIC_OFF    = Buffer.from([ESC, 0x35]);        // ESC 5
+const FONT_B        = Buffer.from([ESC, 0x4D, 0x01]); // ESC M 1 — condensed font (smaller on supported printers)
+const FONT_A        = Buffer.from([ESC, 0x4D, 0x00]); // ESC M 0 — standard font (reset)
+const FULL_CUT      = Buffer.from([GS,  0x56, 0x41, 0x00]);
 
 function t(str) {
   return Buffer.from(`${str}\n`, "ascii");
@@ -47,14 +63,65 @@ function money(value) {
   return `£${Number.isFinite(n) ? n.toFixed(2) : "?.??"}`;
 }
 
+// Fixed-width price for the ESC/POS price column: £ pinned at position 0,
+// number right-aligned within the remaining (PRICE_COL - 1) chars.
+function priceCol(value) {
+  const n = Number.parseFloat(value);
+  return "£" + (Number.isFinite(n) ? n.toFixed(2) : "?.??").padStart(PRICE_COL - 1);
+}
+
 function itemLine(item) {
   const qty    = String(item.quantity ?? 1);
-  const price  = money(item.line_total);
+  const price  = priceCol(item.line_total);
   const prefix = `${qty} x `;
-  // right-align price, fill description to width
-  const descWidth = COLS - prefix.length - price.length - 1;
-  const desc = String(item.description ?? "").slice(0, descWidth).padEnd(descWidth);
-  return t(`${prefix}${desc} ${price}`);
+  const desc   = String(item.description ?? "");
+  // Width available for the description on the first line (price on same line)
+  const firstLineDescWidth = COLS - prefix.length - PRICE_COL - 1;
+
+  if (desc.length <= firstLineDescWidth) {
+    // Short description fits on one line: pad and right-align price
+    return t(`${prefix}${desc.padEnd(firstLineDescWidth)} ${price}`);
+  }
+
+  // Long description: wrap across multiple lines; price right-aligned on last line
+  // Continuation lines are indented by prefix.length spaces to align under description
+  const indent      = " ".repeat(prefix.length);
+  const contWidth   = COLS - prefix.length - PRICE_COL - 1;
+  const wrapWidth   = COLS - prefix.length; // full wrap width without price
+
+  // Split desc into words and fill lines
+  const words  = desc.split(" ");
+  const linesArr = [];
+  let   current  = "";
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (candidate.length <= wrapWidth) {
+      current = candidate;
+    } else {
+      if (current) linesArr.push(current);
+      current = word;
+    }
+  }
+  if (current) linesArr.push(current);
+
+  // Build output: first line has prefix, subsequent lines are indented
+  const out = [];
+  for (let i = 0; i < linesArr.length; i++) {
+    const lineText = linesArr[i];
+    const isLast   = i === linesArr.length - 1;
+    if (i === 0) {
+      if (isLast) {
+        out.push(t(`${prefix}${lineText.padEnd(firstLineDescWidth)} ${price}`));
+      } else {
+        out.push(t(`${prefix}${lineText}`));
+      }
+    } else if (isLast) {
+      out.push(t(`${indent}${lineText.padEnd(contWidth)} ${price}`));
+    } else {
+      out.push(t(`${indent}${lineText}`));
+    }
+  }
+  return Buffer.concat(out);
 }
 
 function buildLogoBytes() {
@@ -172,7 +239,7 @@ export async function renderSlipHtml(order) {
   const lineRows = d.lines.map(item => {
     const qty   = item.quantity ?? 1;
     const price = money(item.line_total);
-    return `<tr><td>${qty} &times; ${item.description}</td><td class="price">${price}</td></tr>`;
+    return `<tr><td class="desc">${qty} &times; ${item.description}</td><td class="price">${price}</td></tr>`;
   }).join("\n");
 
   const footerLines = d.footer.map(l => `<p class="footer">${l}</p>`).join("\n");
@@ -190,15 +257,18 @@ export async function renderSlipHtml(order) {
   .receipt { background: #fff; width: 288px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
   .logo { display: block; margin: 0 auto 8px; width: 64px; opacity: 0.7; filter: invert(1); }
   .vendor { font-size: 0.6rem; text-align: center; letter-spacing: 0.12em; color: #999; margin: 0 0 2px; text-transform: uppercase; }
-  .name { font-size: 0.95rem; font-weight: bold; text-align: center; margin: 0 0 2px; letter-spacing: 0.04em; }
-  .name .graffiti { font-style: italic; }
+  .name-wrap { position: relative; text-align: center; margin: 0 0 2px; }
+  .name { font-size: 0.95rem; font-weight: bold; display: inline-block; letter-spacing: 0.04em; }
+  .graffiti { font-size: 0.9rem; font-style: italic; font-weight: bold; color: #cc0000;
+              display: block; text-align: left; margin-left: 8px; margin-bottom: -2px; letter-spacing: 0.02em; }
   .location { font-size: 0.65rem; text-align: center; color: #888; margin: 0 0 10px; letter-spacing: 0.08em; }
   .order-num { font-size: 2.2rem; font-weight: bold; text-align: center; margin: 8px 0; letter-spacing: 0.1em; }
   .divider { border: none; border-top: 1px dashed #bbb; margin: 8px 0; }
-  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; table-layout: fixed; }
   td { padding: 2px 0; vertical-align: top; }
-  td.price { text-align: right; white-space: nowrap; }
-  .total-row td { font-weight: bold; font-size: 1rem; border-top: 1px solid #000; padding-top: 4px; }
+  td.desc { word-break: break-word; padding-left: 4ch; text-indent: -4ch; }
+  td.price { width: 4.5em; text-align: right; white-space: nowrap; }
+  .total-row td { font-weight: bold; font-size: 1rem; border-top: 1px solid #000; padding-top: 4px; color: #cc0000; }
   .status { text-align: center; font-size: 0.8rem; font-weight: bold; margin: 10px 0 2px; letter-spacing: 0.06em; }
   .status-sub { text-align: center; font-size: 0.7rem; color: #666; margin: 0 0 8px; }
   .qr { text-align: center; margin: 8px 0; }
@@ -210,7 +280,10 @@ export async function renderSlipHtml(order) {
 <div class="receipt">
   ${LOGO_DATA_URL ? `<img class="logo" src="${LOGO_DATA_URL}" alt="">` : ""}
   <p class="vendor">${d.vendorLine}</p>
-  <p class="name"><span class="graffiti">space</span> Base Asset Retrieval System</p>
+  <div class="name-wrap">
+    <span class="graffiti">space</span>
+    <span class="name">Base Asset Retrieval System</span>
+  </div>
   <p class="location">${d.locationLine}</p>
   <hr class="divider">
   <div class="order-num">${d.orderName}</div>
@@ -236,22 +309,32 @@ export async function renderSlipHtml(order) {
 export async function renderSlip(order) {
   const d = buildReceiptData(order);
 
-  const label  = "Grand total ";
-  const spaces = " ".repeat(Math.max(0, COLS - label.length - d.total.length));
+  const label  = "Total ";
+  const spaces = " ".repeat(Math.max(0, COLS - label.length - PRICE_COL));
 
   const parts = [
     INIT,
     ALIGN_CENTER,
-    LOGO_ESC_POS,
-    t(""),
-    t(d.vendorLine.slice(0, COLS)),
-    t("space Base Asset Retrieval"),
+    COLOR_RED, LOGO_ESC_POS, COLOR_BLACK,
+    // vendor: Font B (condensed) to de-emphasise it — matches target's 0.6rem grey styling
+    FONT_B, t(d.vendorLine.slice(0, COLS)), FONT_A,
+    // "space" is graffiti — normal size (SIZE_RESET), red, bold+italic, offset-left.
+    // Both "space" and the official name use SIZE_RESET so the size difference is subtle —
+    // matching the target's 0.9rem vs 0.95rem ratio. Bold differentiates the official name.
+    ALIGN_LEFT, SIZE_RESET,
+    BOLD_ON, ITALIC_ON, COLOR_RED, t("  space"), COLOR_BLACK, ITALIC_OFF, BOLD_OFF,
+    // official name centred on its own line — SIZE_RESET + bold only (not double-height)
+    // Keeps the name only marginally larger than the graffiti, matching the subtle scale
+    // difference in the target. The order number below uses SIZE_2X for the big emphasis.
+    ALIGN_CENTER, BOLD_ON, SIZE_RESET, t("Base Asset Retrieval System"), BOLD_OFF,
     t(d.locationLine.slice(0, COLS)),
-    t(""),
-    t(d.orderName),
+    // separator BEFORE order number (target has dividers both before and after)
+    ALIGN_LEFT, t("-".repeat(COLS)),
+    LINE_SP_TIGHT,
+    ALIGN_CENTER, BOLD_ON, SIZE_3X, t(d.orderName), SIZE_RESET, BOLD_OFF,
+    LINE_SP_RESET,
     ALIGN_LEFT,
     t("-".repeat(COLS)),
-    t(""),
   ];
 
   for (const item of d.lines) {
@@ -259,23 +342,23 @@ export async function renderSlip(order) {
   }
 
   parts.push(
-    t(""),
-    Buffer.from(label + spaces, "ascii"),
-    COLOR_RED,
-    Buffer.from(d.total, "ascii"),
-    COLOR_BLACK,
+    // No separator before total — the target has no divider between items and total.
+    // Bold + double-strike + red on the total row provides sufficient visual separation,
+    // matching the target's border-top approach on the total-row.
+    BOLD_ON, DBLSTRIKE_ON, COLOR_RED,
+    Buffer.from(label + spaces + priceCol(d.total.slice(1)), "ascii"),
+    COLOR_BLACK, DBLSTRIKE_OFF, BOLD_OFF, SIZE_RESET,
     Buffer.from("\n", "ascii"),
-    t(""),
     ALIGN_CENTER,
-    t(d.statusLine),
+    // status: bold only — no underline in target
+    BOLD_ON, t(d.statusLine), BOLD_OFF,
     t(d.statusSub),
-    t(""),
-    await qrBytes(d.barcode),
-    t(""),
-    t("-".repeat(COLS)),
-    ...d.footer.map(l => t(l)),
-    ALIGN_LEFT,
-    t(""), t(""), t(""),
+    await qrBytes(d.barcode, 6),
+    t(d.barcode),
+    ...(d.createdAt ? [t(`Created: ${d.createdAt}`)] : []),
+    ...(d.expiresAt ? [t(`Expires: ${d.expiresAt}`)] : []),
+    ALIGN_LEFT, t("-".repeat(COLS)),
+    ALIGN_CENTER, ...d.footer.map(l => t(l)),
     FULL_CUT
   );
 

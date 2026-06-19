@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { renderSlip, renderSlipHtml } from "./slip.js";
+import { escposToHtml } from "./escpos-render.js";
 
 function printArgs(config) {
   if (config.printCommand === "lpr") {
@@ -73,12 +74,14 @@ async function dummyPrintSlip(order, slipData) {
   const receiptsDir = path.resolve("receipts");
   await mkdir(receiptsDir, { recursive: true });
 
-  const binPath  = path.join(tmpdir(), `kiosk-receipt-${ref}.bin`);
-  const htmlPath = path.join(receiptsDir, `receipt-${ref}.html`);
+  const binPath      = path.join(tmpdir(), `kiosk-receipt-${ref}.bin`);
+  const htmlPath     = path.join(receiptsDir, `receipt-${ref}.html`);
+  const escposPath   = path.join(receiptsDir, `receipt-${ref}-escpos.html`);
 
   const [html] = await Promise.all([
     renderSlipHtml(order),
     writeFile(binPath, slipData),
+    writeFile(escposPath, escposToHtml(slipData, `Receipt ${ref} — ESC/POS preview`)),
   ]);
   await writeFile(htmlPath, html);
 
