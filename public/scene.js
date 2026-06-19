@@ -10,8 +10,10 @@
 // data- attributes (resolved in app.js, overridable via products.json).
 //
 // Pi budget: this targets a Raspberry Pi, so everything is deliberately cheap —
-// no antialiasing (jaggy suits the look anyway), flat MeshLambert (cheapest lit
-// material), 2 lights, ~2 meshes per model, 30fps, and off-screen cards skipped.
+// one WebGL context, no antialiasing (jaggy suits the look anyway), flat-shaded
+// materials, 2 lights, few meshes per model, 30fps idle (full-rate only while
+// scrolling), and only on-screen cards are touched at all — visibility is tracked
+// with an IntersectionObserver so off-screen models cost nothing per frame.
 
 import * as THREE from "three";
 
@@ -37,6 +39,10 @@ let glitchUntil = 0;
 let glitchKeys = new Set(); // which models glitch during the current burst
 let wasGlitching = false;
 let failed = false;
+let lastAspect = 0;             // skip redundant camera.updateProjectionMatrix()
+const onScreen = new Set();     // .product-3d elements currently in the products viewport
+let cardObserver = null;        // IntersectionObserver: which cards are on-screen
+let domObserver = null;         // re-scans cards when the grid re-renders
 
 // stockline key -> { scene, model, phase, sig }
 const entries = new Map();
@@ -125,7 +131,7 @@ function ballLabelTexture(color) {
 
   const tex = new THREE.CanvasTexture(cv);
   tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 4;
+  tex.anisotropy = 1; // anisotropic filtering is costly on the Pi GPU; not worth it at card size
   return tex;
 }
 
@@ -216,6 +222,14 @@ export function initScene() {
     window.addEventListener("resize", resize);
     // Capture catches scroll from .products even though it's re-rendered often.
     document.addEventListener("scroll", () => { lastScrollAt = performance.now(); }, { capture: true, passive: true });
+
+    // Re-scan visible cards whenever the grid re-renders (innerHTML swap).
+    const appEl = document.getElementById("app");
+    if (appEl) {
+      domObserver = new MutationObserver(rescanCards);
+      domObserver.observe(appEl, { childList: true, subtree: true });
+    }
+    rescanCards();
   } catch (err) {
     // No WebGL — cards just show the empty glowing slot. Not fatal.
     failed = true;
@@ -251,9 +265,27 @@ function getEntry(el) {
 
 // ── Render loop ─────────────────────────────────────────────────────────────
 
+// Rebuild the on-screen set after a re-render. Cards are observed against the
+// scrollable .products viewport so models scrolled out of view cost nothing.
+// Newly-observed cards start "on" and the observer prunes them a frame later.
+function rescanCards() {
+  if (cardObserver) cardObserver.disconnect();
+  onScreen.clear();
+  const root = document.querySelector(".products");
+  const cards = document.querySelectorAll(".product-3d");
+  if (!root || !cards.length) { cardObserver = null; return; }
+  cardObserver = new IntersectionObserver(entries => {
+    for (const e of entries) {
+      if (e.isIntersecting) onScreen.add(e.target);
+      else onScreen.delete(e.target);
+    }
+  }, { root, rootMargin: "100px" });
+  for (const el of cards) { onScreen.add(el); cardObserver.observe(el); }
+}
+
 // Pick 1–3 of the on-screen models to glitch for one burst.
 function pickGlitchSubset() {
-  const keys = [...document.querySelectorAll(".product-3d")].map(el => el.dataset.key || el.dataset.model);
+  const keys = [...onScreen].map(el => el.dataset.key || el.dataset.model);
   const set = new Set();
   if (!keys.length) return set;
   const n = Math.min(keys.length, 1 + Math.floor(Math.random() * 3));
@@ -302,10 +334,11 @@ function loop(now) {
   if (wasGlitching && !glitching) clearCorruption(); // burst just ended → restore materials
   wasGlitching = glitching;
 
-  // Render every frame while scrolling or glitching so motion stays smooth;
-  // throttle to 30fps when idle to spare the Pi.
+  // Render every frame while scrolling so models track the cards; otherwise cap
+  // at 30fps — including during glitches (the jitter re-randomises each rendered
+  // frame, so 30fps still reads as chaotic but costs half of full-rate).
   const scrolling = now - lastScrollAt < SCROLL_WAKE_MS;
-  if (!scrolling && !glitching && now - lastFrame < FRAME_MS) return;
+  if (!scrolling && now - lastFrame < FRAME_MS) return;
   lastFrame = now;
 
   const time = now / 1000;
@@ -318,7 +351,8 @@ function loop(now) {
   renderer.clear(true, true, true);
   renderer.setScissorTest(true);
 
-  for (const el of document.querySelectorAll(".product-3d")) {
+  // Only iterate cards the IntersectionObserver says are on-screen.
+  for (const el of onScreen) {
     const r = el.getBoundingClientRect();
     if (r.width <= 0 || r.height <= 0) continue;
 
@@ -336,8 +370,12 @@ function loop(now) {
     // Viewport = full card rect (keeps the model un-squished); scissor = clipped.
     renderer.setViewport(r.left, viewH - r.bottom, r.width, r.height);
     renderer.setScissor(left, viewH - bottom, right - left, bottom - top);
-    camera.aspect = r.width / r.height;
-    camera.updateProjectionMatrix();
+    const aspect = r.width / r.height;
+    if (aspect !== lastAspect) { // all cards share a size, so this recomputes ~once/frame
+      camera.aspect = aspect;
+      camera.updateProjectionMatrix();
+      lastAspect = aspect;
+    }
 
     // Glitch burst: jitter rotation/position/scale per frame, with the odd
     // dropped frame so the model flickers out. Otherwise reset to a clean bob.
