@@ -374,7 +374,7 @@ const COKE_MIXES = [
 function resolveColors(product, meta) {
   if (meta.color) return { color: meta.color, color2: meta.color2 || null };
   const name = product.name || "";
-  if (/coke|cola/i.test(name)) {
+  if (/\bcoke\b|\bcola\b/i.test(name)) { // \b so "Lotta Colada" isn't treated as a cola
     const mix = COKE_MIXES.find(([re]) => re.test(name));
     return mix ? { color: mix[1], color2: COLA_BROWN } : { color: COLA_BROWN, color2: null };
   }
