@@ -1,4 +1,4 @@
-import { initScene, startScene, stopScene } from "/scene.js";
+import { initScene, startScene, stopScene, setExtraSlots, clearExtraSlots, rescanCards } from "/scene.js";
 
 const app = document.querySelector("#app");
 
@@ -194,12 +194,15 @@ let a11yTimer = null;
 
 function enableA11y() {
   document.body.classList.add('a11y-mode');
+  stopScene();
   resetA11yTimer();
 }
 
 function disableA11y() {
   document.body.classList.remove('a11y-mode');
   clearA11yTimer();
+  startScene();
+  rescanCards();
 }
 
 function resetA11yTimer() {
@@ -222,6 +225,7 @@ document.getElementById('a11y-btn').addEventListener('click', () => {
       state.screen = 'order';
       startIdleTimer();
       scheduleNextOrderGlitch();
+      startScene();
       if (state.products.length > 0) render();
       else loadStock();
     }
@@ -792,6 +796,7 @@ function fireCRT() {
     webkitMaskImage: 'linear-gradient(to bottom, transparent 0px, rgba(0,0,0,0.15) 5px, transparent 8px, rgba(0,0,0,0.5) 12px, transparent 15px, black 22px)',
   });
   document.body.appendChild(clone);
+  setExtraSlots(clone.querySelectorAll('.product-3d'));
 
   const bar = document.createElement('div');
   bar.className = 'crt-sync-bar';
@@ -833,6 +838,7 @@ function fireCRT() {
   }
 
   function cleanup() {
+    clearExtraSlots();
     app.style.transform = '';
     clone.remove();
     bar.remove();
@@ -872,7 +878,6 @@ boot();
     startX = e.clientX;
     startScroll = el.scrollLeft;
     moved = false;
-    el.setPointerCapture(e.pointerId);
     el.style.cursor = 'grabbing';
   });
   document.addEventListener('pointermove', e => {
@@ -893,13 +898,39 @@ boot();
 // ── Maintenance mode ──────────────────────────────────────────────────────────
 const maintenanceOverlay = document.getElementById("maintenance-overlay");
 let maintenanceReconnectDelay = 3000;
+let maintenanceGlitchTimer = null;
+
+function scheduleMaintenanceGlitch() {
+  maintenanceGlitchTimer = setTimeout(() => {
+    const titleEl = document.querySelector('.maintenance-title');
+    if (titleEl) {
+      titleEl.classList.add('glitching');
+      titleEl.addEventListener('animationend', () => {
+        titleEl.classList.remove('glitching');
+        scheduleMaintenanceGlitch();
+      }, { once: true });
+    }
+  }, 3_000 + Math.random() * 9_000);
+}
+
+function stopMaintenanceGlitch() {
+  clearTimeout(maintenanceGlitchTimer);
+  maintenanceGlitchTimer = null;
+  document.querySelector('.maintenance-title')?.classList.remove('glitching');
+}
 
 function connectKioskEvents() {
   const es = new EventSource("/api/events");
   es.addEventListener("maintenance", e => {
     try {
-      const { active } = JSON.parse(e.data);
+      const { active, reopeningAt } = JSON.parse(e.data);
       maintenanceOverlay.hidden = !active;
+      const reopenEl = document.getElementById("maintenance-reopen");
+      if (reopenEl) {
+        reopenEl.hidden = !active || !reopeningAt;
+        reopenEl.textContent = reopeningAt ? `REOPENING ${reopeningAt}` : "";
+      }
+      if (active) scheduleMaintenanceGlitch(); else stopMaintenanceGlitch();
       maintenanceReconnectDelay = 3000;
     } catch {}
   });

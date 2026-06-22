@@ -66,7 +66,7 @@ Useful optional settings:
 
 Remote operations — required if the kiosk is unattended:
 
-- `KIOSK_OMS_URL`: base URL of the OMS server (e.g. `http://192.168.x.x:8081`). When set, printer errors are POSTed to `/api/printer-alert` so the OMS staff screen can alert bar staff. If not set, printer failures are visible on the kiosk screen but invisible to staff. Requires that the kiosk can reach the OMS server — confirm camp-network → VLAN routing with Luke before site.
+- `KIOSK_OMS_URL`: base URL of the OMS server (e.g. `http://192.168.x.x:8081`). When set: (1) printer errors are POSTed to `/api/printer-alert` so the OMS staff screen can alert bar staff; (2) the kiosk server subscribes to OMS SSE on startup to receive maintenance mode changes — the full-screen "TERMINAL OFFLINE" overlay is driven by this. If not set, printer failures are visible on the kiosk screen but invisible to staff, and maintenance mode can only be set directly via `POST /api/maintenance` on the kiosk itself. Requires that the kiosk can reach the OMS server — confirm camp-network → VLAN routing with Luke before site.
 - `KIOSK_LISTEN_HOST`: host to bind the local server, default `127.0.0.1`. Set to `0.0.0.0` if you need the kiosk UI reachable from another device.
 - `KIOSK_DUMMY_PRINT`: if `true`, renders the slip to a file in `/tmp` instead of sending to CUPS. Useful for testing slip layout without a printer; auto-enabled in mock mode when `KIOSK_PRINT_ENABLED=true`.
 
@@ -145,6 +145,15 @@ off-screen cards are skipped. It pauses entirely on the sleep and confirmation
 screens. If WebGL is unavailable it falls back silently to an empty card.
 
 Stockline IDs come from the quicktill database (`stockline.id`).
+
+## Maintenance mode
+
+A full-screen "TERMINAL OFFLINE" overlay can be shown on the kiosk to halt ordering. State is pushed from the OMS when `KIOSK_OMS_URL` is set; it can also be controlled directly:
+
+| Endpoint | Notes |
+|---|---|
+| `GET /api/events` | SSE stream. Sends a `maintenance` event with `{ active, reopeningAt }` on connect (replay) and whenever state changes. |
+| `POST /api/maintenance` | Body: `{ active, reopeningAt? }`. Sets maintenance mode locally; if OMS is connected the OMS is the authoritative source and will override this on the next SSE update. |
 
 ## Tillweb API
 

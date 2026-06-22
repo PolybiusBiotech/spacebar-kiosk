@@ -41,6 +41,7 @@ let wasGlitching = false;
 let failed = false;
 let lastAspect = 0;             // skip redundant camera.updateProjectionMatrix()
 const onScreen = new Set();     // .product-3d elements currently in the products viewport
+const extraSlots = new Set();   // transient extra slots (e.g. CRT clone) — no clip constraint
 let cardObserver = null;        // IntersectionObserver: which cards are on-screen
 let domObserver = null;         // re-scans cards when the grid re-renders
 
@@ -204,7 +205,7 @@ export function initScene() {
       width: "100%",
       height: "100%",
       pointerEvents: "none",
-      zIndex: "5",
+      zIndex: "9997",
       display: "none"
     });
     document.body.appendChild(canvas);
@@ -268,7 +269,7 @@ function getEntry(el) {
 // Rebuild the on-screen set after a re-render. Cards are observed against the
 // scrollable .products viewport so models scrolled out of view cost nothing.
 // Newly-observed cards start "on" and the observer prunes them a frame later.
-function rescanCards() {
+export function rescanCards() {
   if (cardObserver) cardObserver.disconnect();
   onScreen.clear();
   const root = document.querySelector(".products");
@@ -405,6 +406,38 @@ function loop(now) {
 
     renderer.render(entry.scene, camera);
   }
+
+  // Render extra transient slots (e.g. the CRT clone) — same as above but no
+  // clip constraint, since these elements are outside .products.
+  for (const el of extraSlots) {
+    const r = el.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0 || r.bottom < 0 || r.top > viewH) continue;
+    const entry = getEntry(el);
+    renderer.setViewport(r.left, viewH - r.bottom, r.width, r.height);
+    renderer.setScissor(r.left, viewH - r.bottom, r.width, r.height);
+    const aspect = r.width / r.height;
+    if (aspect !== lastAspect) {
+      camera.aspect = aspect;
+      camera.updateProjectionMatrix();
+      lastAspect = aspect;
+    }
+    const m = entry.model;
+    m.rotation.y = time * 0.6 + entry.phase;
+    m.rotation.x = Math.sin(time * 0.8 + entry.phase) * 0.12;
+    m.position.x = 0;
+    m.position.y = Math.sin(time * 1.4 + entry.phase) * 0.14;
+    m.scale.set(1, 1, 1);
+    renderer.render(entry.scene, camera);
+  }
+}
+
+export function setExtraSlots(elements) {
+  extraSlots.clear();
+  for (const el of elements) extraSlots.add(el);
+}
+
+export function clearExtraSlots() {
+  extraSlots.clear();
 }
 
 export function startScene() {

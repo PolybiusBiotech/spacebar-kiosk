@@ -359,11 +359,18 @@ function updatePrinterState(result, printed = false) {
 }
 
 // ── Maintenance mode ────────────────────────────────────────────────────────
+// maintenanceMode = OMS-wide (affects all screens), or local override
+// kioskOnlyMode   = kiosk-only (stops orders at kiosk/badge; OMS displays stay live)
 let maintenanceMode = false;
+let maintenanceReopeningAt = "";
+let kioskOnlyMode = false;
+let kioskOnlyReopeningAt = "";
 const kioskEventClients = new Set();
 
 function broadcastKioskMaintenance() {
-  const data = `event: maintenance\ndata: ${JSON.stringify({ active: maintenanceMode })}\n\n`;
+  const active = maintenanceMode || kioskOnlyMode;
+  const reopeningAt = active ? (maintenanceMode ? maintenanceReopeningAt : kioskOnlyReopeningAt) : "";
+  const data = `event: maintenance\ndata: ${JSON.stringify({ active, reopeningAt })}\n\n`;
   for (const res of kioskEventClients) {
     try { res.write(data); } catch { kioskEventClients.delete(res); }
   }
@@ -395,10 +402,20 @@ function connectOmsMaintenance(config) {
         } else if (line === "") {
           if (pendingEvent === "maintenance" && pendingData) {
             try {
-              const { active } = JSON.parse(pendingData);
+              const { active, reopeningAt } = JSON.parse(pendingData);
               maintenanceMode = Boolean(active);
+              maintenanceReopeningAt = String(reopeningAt ?? "");
               broadcastKioskMaintenance();
-              console.log(`[maintenance] OMS signalled: ${maintenanceMode ? "ON" : "OFF"}`);
+              console.log(`[maintenance] OMS signalled: ${maintenanceMode ? "ON" : "OFF"}${maintenanceReopeningAt ? ` reopening ${maintenanceReopeningAt}` : ""}`);
+            } catch {}
+          }
+          if (pendingEvent === "kiosk-maintenance" && pendingData) {
+            try {
+              const { active, reopeningAt } = JSON.parse(pendingData);
+              kioskOnlyMode = Boolean(active);
+              kioskOnlyReopeningAt = String(reopeningAt ?? "");
+              broadcastKioskMaintenance();
+              console.log(`[kiosk-maintenance] OMS signalled: ${kioskOnlyMode ? "ON" : "OFF"}${kioskOnlyReopeningAt ? ` reopening ${kioskOnlyReopeningAt}` : ""}`);
             } catch {}
           }
           pendingEvent = null;
@@ -524,7 +541,9 @@ export function createServer(config, { getStock: getStockOverride = null } = {})
           "Connection": "keep-alive",
           "X-Accel-Buffering": "no"
         });
-        res.write(`event: maintenance\ndata: ${JSON.stringify({ active: maintenanceMode })}\n\n`);
+        const effectiveActive = maintenanceMode || kioskOnlyMode;
+        const effectiveReopeningAt = effectiveActive ? (maintenanceMode ? maintenanceReopeningAt : kioskOnlyReopeningAt) : "";
+        res.write(`event: maintenance\ndata: ${JSON.stringify({ active: effectiveActive, reopeningAt: effectiveReopeningAt })}\n\n`);
         kioskEventClients.add(res);
         req.on("close", () => kioskEventClients.delete(res));
         return;
@@ -533,9 +552,10 @@ export function createServer(config, { getStock: getStockOverride = null } = {})
       if (requestUrl.pathname === "/api/maintenance" && req.method === "POST") {
         const body = await readJson(req);
         maintenanceMode = Boolean(body.active);
+        if (body.reopeningAt !== undefined) maintenanceReopeningAt = String(body.reopeningAt ?? "");
         broadcastKioskMaintenance();
-        console.log(`[maintenance] local set: ${maintenanceMode ? "ON" : "OFF"}`);
-        sendJson(res, 200, { ok: true, active: maintenanceMode });
+        console.log(`[maintenance] local set: ${maintenanceMode ? "ON" : "OFF"}${maintenanceReopeningAt ? ` reopening ${maintenanceReopeningAt}` : ""}`);
+        sendJson(res, 200, { ok: true, active: maintenanceMode, reopeningAt: maintenanceReopeningAt });
         return;
       }
 
