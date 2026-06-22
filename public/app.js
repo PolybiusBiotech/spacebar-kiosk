@@ -861,6 +861,35 @@ async function boot() {
 
 boot();
 
+// ── Tab bar drag-to-scroll ────────────────────────────────────────────────────
+// overflow-x:auto handles touch natively; add pointer drag for mouse/tablet.
+(function () {
+  let dragEl = null, startX = 0, startScroll = 0, moved = false;
+  document.addEventListener('pointerdown', e => {
+    const el = e.target.closest('.tabs');
+    if (!el) return;
+    dragEl = el;
+    startX = e.clientX;
+    startScroll = el.scrollLeft;
+    moved = false;
+    el.setPointerCapture(e.pointerId);
+    el.style.cursor = 'grabbing';
+  });
+  document.addEventListener('pointermove', e => {
+    if (!dragEl) return;
+    const dx = e.clientX - startX;
+    if (Math.abs(dx) > 4) moved = true;
+    dragEl.scrollLeft = startScroll - dx;
+  });
+  document.addEventListener('pointerup', e => {
+    if (!dragEl) return;
+    dragEl.style.cursor = '';
+    // swallow the click so a drag doesn't also activate the tab
+    if (moved) e.stopPropagation();
+    dragEl = null;
+  }, true);
+})();
+
 // ── Maintenance mode ──────────────────────────────────────────────────────────
 const maintenanceOverlay = document.getElementById("maintenance-overlay");
 let maintenanceReconnectDelay = 3000;
