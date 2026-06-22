@@ -213,6 +213,57 @@ function mockStock(config) {
         available_quantity: "24",
         available_display: "24"
       },
+      // ── Soft Drinks ────────────────────────────────────────────
+      {
+        stockline_id: 501,
+        name: "Coca-Cola",
+        description: "330ml",
+        category: "Soft Drinks",
+        price: "3.00",
+        available: true,
+        available_quantity: "72",
+        available_display: "72"
+      },
+      {
+        stockline_id: 502,
+        name: "Coca-Cola Zero",
+        description: "330ml",
+        category: "Soft Drinks",
+        price: "3.00",
+        available: true,
+        available_quantity: "48",
+        available_display: "48"
+      },
+      {
+        stockline_id: 503,
+        name: "Fanta Orange",
+        description: "330ml",
+        category: "Soft Drinks",
+        price: "3.00",
+        available: true,
+        available_quantity: "48",
+        available_display: "48"
+      },
+      {
+        stockline_id: 504,
+        name: "Sprite",
+        description: "330ml",
+        category: "Soft Drinks",
+        price: "3.00",
+        available: true,
+        available_quantity: "48",
+        available_display: "48"
+      },
+      {
+        stockline_id: 505,
+        name: "Club Mate",
+        description: "500ml",
+        category: "Soft Drinks",
+        price: "3.50",
+        available: true,
+        available_quantity: "24",
+        available_display: "24"
+      },
     ]
   };
 }
