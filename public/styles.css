@@ -1149,6 +1149,36 @@ body.a11y-mode .btn-primary {
 }
 
 /* ── CRT overlay ── */
+#maintenance-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: #000F00;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+}
+#maintenance-overlay[hidden] { display: none; }
+.maintenance-title {
+  font-family: 'Eurostile', ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(2rem, 8vw, 4rem);
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: #7CC142;
+  animation: maintenance-blink 1.4s step-end infinite;
+}
+.maintenance-sub {
+  font-family: 'Eurostile', ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(0.65rem, 2vw, 0.85rem);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(124,193,66,0.45);
+}
+@keyframes maintenance-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
 .crt-overlay {
   position: fixed;
   inset: 0;

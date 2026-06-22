@@ -1,0 +1,15 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "spacebar-kiosk",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["start"],
+      "port": 8080,
+      "env": {
+        "KIOSK_MOCK_MODE": "true",
+        "KIOSK_PRINT_ENABLED": "false"
+      }
+    }
+  ]
+}

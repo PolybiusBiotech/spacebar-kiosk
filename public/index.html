@@ -18,6 +18,11 @@
     </main>
     <!-- Outside #app so it is not affected by the a11y scale transform -->
     <button class="a11y-btn" id="a11y-btn" title="Accessibility mode" aria-label="Accessibility mode">♿</button>
+    <!-- Maintenance overlay: shown when OMS puts the bar into maintenance mode -->
+    <div id="maintenance-overlay" hidden aria-live="assertive">
+      <p class="maintenance-title">TERMINAL OFFLINE</p>
+      <p class="maintenance-sub">FACILITY CLOSED — STAND BY</p>
+    </div>
     <!-- CRT overlay: persistent scanlines + intermittent rolling band -->
     <div class="crt-overlay" id="crt-overlay" aria-hidden="true"></div>
     <script type="module" src="/app.js"></script>

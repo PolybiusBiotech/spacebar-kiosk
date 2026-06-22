@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import http from "node:http";
+import https from "node:https";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 
@@ -213,7 +214,57 @@ function mockStock(config) {
         available_quantity: "24",
         available_display: "24"
       },
-
+      // ── Soft Drinks ────────────────────────────────────────────
+      {
+        stockline_id: 501,
+        name: "Coca-Cola",
+        description: "330ml",
+        category: "Soft Drinks",
+        price: "3.00",
+        available: true,
+        available_quantity: "72",
+        available_display: "72"
+      },
+      {
+        stockline_id: 502,
+        name: "Coca-Cola Zero",
+        description: "330ml",
+        category: "Soft Drinks",
+        price: "3.00",
+        available: true,
+        available_quantity: "48",
+        available_display: "48"
+      },
+      {
+        stockline_id: 503,
+        name: "Fanta Orange",
+        description: "330ml",
+        category: "Soft Drinks",
+        price: "3.00",
+        available: true,
+        available_quantity: "48",
+        available_display: "48"
+      },
+      {
+        stockline_id: 504,
+        name: "Sprite",
+        description: "330ml",
+        category: "Soft Drinks",
+        price: "3.00",
+        available: true,
+        available_quantity: "48",
+        available_display: "48"
+      },
+      {
+        stockline_id: 505,
+        name: "Club Mate",
+        description: "500ml",
+        category: "Soft Drinks",
+        price: "3.50",
+        available: true,
+        available_quantity: "24",
+        available_display: "24"
+      },
     ]
   };
 }
@@ -358,6 +409,61 @@ function updatePrinterState(result, printed = false) {
   if (printed) printerState.lastPrintedAt = printerState.lastCheckedAt;
 }
 
+// ── Maintenance mode ────────────────────────────────────────────────────────
+let maintenanceMode = false;
+const kioskEventClients = new Set();
+
+function broadcastKioskMaintenance() {
+  const data = `event: maintenance\ndata: ${JSON.stringify({ active: maintenanceMode })}\n\n`;
+  for (const res of kioskEventClients) {
+    try { res.write(data); } catch { kioskEventClients.delete(res); }
+  }
+}
+
+function connectOmsMaintenance(config) {
+  if (!config.omsUrl) return;
+  let url;
+  try { url = new URL(`${config.omsUrl}/pay/events`); } catch { return; }
+  const lib = url.protocol === "https:" ? https : http;
+  const req = lib.get(url, res => {
+    if (res.statusCode !== 200) {
+      res.resume();
+      return setTimeout(() => connectOmsMaintenance(config), 10_000);
+    }
+    res.setEncoding("utf8");
+    let buf = "";
+    let pendingEvent = null;
+    let pendingData = null;
+    res.on("data", chunk => {
+      buf += chunk;
+      const lines = buf.split("\n");
+      buf = lines.pop();
+      for (const line of lines) {
+        if (line.startsWith("event: ")) {
+          pendingEvent = line.slice(7).trim();
+        } else if (line.startsWith("data: ")) {
+          pendingData = line.slice(6);
+        } else if (line === "") {
+          if (pendingEvent === "maintenance" && pendingData) {
+            try {
+              const { active } = JSON.parse(pendingData);
+              maintenanceMode = Boolean(active);
+              broadcastKioskMaintenance();
+              console.log(`[maintenance] OMS signalled: ${maintenanceMode ? "ON" : "OFF"}`);
+            } catch {}
+          }
+          pendingEvent = null;
+          pendingData = null;
+        }
+      }
+    });
+    res.on("end", () => setTimeout(() => connectOmsMaintenance(config), 5_000));
+    res.on("error", () => setTimeout(() => connectOmsMaintenance(config), 5_000));
+  });
+  req.on("error", () => setTimeout(() => connectOmsMaintenance(config), 5_000));
+  req.setTimeout(0);
+}
+
 // If KIOSK_OMS_URL is configured, POST printer errors there so the OMS
 // staff screen can alert. Fire-and-forget — kiosk flow is not blocked.
 function notifyOmsOfPrinterError(config, message) {
@@ -462,6 +568,28 @@ export function createServer(config, { getStock: getStockOverride = null } = {})
         return;
       }
 
+      if (requestUrl.pathname === "/api/events" && req.method === "GET") {
+        res.writeHead(200, {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
+          "X-Accel-Buffering": "no"
+        });
+        res.write(`event: maintenance\ndata: ${JSON.stringify({ active: maintenanceMode })}\n\n`);
+        kioskEventClients.add(res);
+        req.on("close", () => kioskEventClients.delete(res));
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/maintenance" && req.method === "POST") {
+        const body = await readJson(req);
+        maintenanceMode = Boolean(body.active);
+        broadcastKioskMaintenance();
+        console.log(`[maintenance] local set: ${maintenanceMode ? "ON" : "OFF"}`);
+        sendJson(res, 200, { ok: true, active: maintenanceMode });
+        return;
+      }
+
       if (requestUrl.pathname === "/api/orders/expire" && req.method === "POST") {
         const missing = config.mockMode ? [] : validateRuntimeConfig(config);
         if (missing.length) {
@@ -515,5 +643,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     if (config.printEnabled && !config.omsUrl) {
       console.warn("WARNING: KIOSK_OMS_URL is not set. Printer errors will not be reported to the OMS staff screen. In a remote/unattended deployment this means staff will not know when the printer needs attention.");
     }
+    connectOmsMaintenance(config);
   });
 }

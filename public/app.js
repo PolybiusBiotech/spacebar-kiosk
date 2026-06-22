@@ -860,3 +860,24 @@ async function boot() {
 }
 
 boot();
+
+// ── Maintenance mode ──────────────────────────────────────────────────────────
+const maintenanceOverlay = document.getElementById("maintenance-overlay");
+let maintenanceReconnectDelay = 3000;
+
+function connectKioskEvents() {
+  const es = new EventSource("/api/events");
+  es.addEventListener("maintenance", e => {
+    try {
+      const { active } = JSON.parse(e.data);
+      maintenanceOverlay.hidden = !active;
+      maintenanceReconnectDelay = 3000;
+    } catch {}
+  });
+  es.onerror = () => {
+    es.close();
+    setTimeout(connectKioskEvents, maintenanceReconnectDelay);
+    maintenanceReconnectDelay = Math.min(maintenanceReconnectDelay * 2, 30_000);
+  };
+}
+connectKioskEvents();
