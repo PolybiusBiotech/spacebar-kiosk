@@ -1,8 +1,3 @@
 {
-  "note": "Map quicktill stockline_id to optional display metadata. All fields are optional. model (can|ball|bottle) and color tune the bobbing 3D product model; see README.",
-  "501": { "color": "#e8191e" },
-  "502": { "color": "#1a1a1a", "color2": "#e8191e" },
-  "503": { "color": "#ff6600" },
-  "504": { "color": "#00b140" },
-  "505": { "color": "#c5b840" }
+  "note": "Map quicktill stockline_id to optional display metadata. All fields are optional. model (can|ball|bottle) and color tune the bobbing 3D product model; see README."
 }
