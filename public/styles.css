@@ -121,6 +121,7 @@ body {
   letter-spacing: 0.28em;
   text-transform: uppercase;
   line-height: 1;
+  margin-bottom: 0.7em;
 }
 
 /* ── Shared bar-lockup: "Base Asset Retrieval" with B/A/R enlarged ── */
@@ -152,17 +153,19 @@ body {
   font-size: clamp(0.75rem, 2.5vw, 1.4rem);
 }
 
-/* "space" — spray-painted to the LEFT of "Base Asset Retrieval" */
+/* "space" — graffiti tagged over the upper-left corner of "Base Asset Retrieval" */
 .sleep-title-unofficial {
   font-family: 'PermanentMarker', cursive;
   font-weight: 400;
-  font-size: clamp(1.6rem, 5vw, 2.8rem);
+  font-size: clamp(2.2rem, 6.5vw, 4rem);
   text-transform: none;
   color: #FCA311;
   position: absolute;
-  right: calc(100% + 0.4em);
-  top: 50%;
-  transform: translateY(-55%) rotate(-4deg);
+  left: -0.95em;
+  top: 0;
+  transform: translateY(-44%) rotate(-14deg);
+  transform-origin: left center;
+  z-index: 3;
   filter: url(#spray-paint) drop-shadow(0 0 14px rgba(252,163,17,0.7)) drop-shadow(0 0 30px rgba(252,163,17,0.3));
   white-space: nowrap;
 }
@@ -265,8 +268,9 @@ body.a11y-mode .products {
   gap: 6px;
 }
 
-/* Hide product images — not useful in compact a11y mode */
-body.a11y-mode .product-img { display: none; }
+/* Hide product images / 3D models — not useful in compact a11y mode */
+body.a11y-mode .product-img,
+body.a11y-mode .product-3d { display: none; }
 
 body.a11y-mode .product-info {
   padding: 8px 10px 2px;
@@ -774,12 +778,23 @@ body.a11y-mode .btn-primary {
   display: block;
 }
 
+/* Slot the 3D canvas draws the bobbing product model into (see scene.js).
+   Stays empty in the DOM — a soft neon glow makes the model pop, and the
+   slot just reserves layout space the WebGL overlay renders on top of. */
+.product-3d {
+  height: 132px;
+  flex-shrink: 0;
+  border-radius: 6px 6px 0 0;
+  background: radial-gradient(circle at 50% 58%, rgba(190, 0, 254, 0.14), rgba(0, 24, 0, 0) 68%);
+}
+
 .product-info {
   padding: 14px 12px 4px;
   flex: 1;
 }
 
-.product--has-img .product-info {
+.product--has-img .product-info,
+.product--has-3d .product-info {
   padding: 10px 12px 4px;
 }
 

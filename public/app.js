@@ -1,3 +1,5 @@
+import { initScene, startScene, stopScene } from "/scene.js";
+
 const app = document.querySelector("#app");
 
 const state = {
@@ -69,6 +71,7 @@ function onIdle() {
   stopOrderGlitch();
   stopCompleteGlitch();
   stopCRT();
+  stopScene();
   render();
   loadStock({ quiet: true });
   scheduleNextGlitch();
@@ -86,6 +89,7 @@ function goToSleep() {
   stopOrderGlitch();
   stopCompleteGlitch();
   stopCRT();
+  stopScene();
   render();
   loadStock({ quiet: true });
   scheduleNextGlitch();
@@ -296,6 +300,87 @@ function visibleProducts() {
   return [...list].sort((a, b) => (a.available === false) - (b.available === false));
 }
 
+// ── 3D model selection ──────────────────────────────────────────────────────
+// Each product card shows a low-poly model (see scene.js). Type and colour are
+// inferred from the product, but products.json can override either per product.
+
+function resolveModel(product, meta, category) {
+  if (meta.model) return meta.model; // 'can' | 'ball' | 'bottle'
+  const hay = `${category || ""} ${product.name || ""}`;
+  if (/buzz|ball|'?rita/i.test(hay)) return "ball";
+  if (/spirit|whisky|whiskey|vodka|gin|rum|tequila|bottle/i.test(category || "")) return "bottle";
+  return "can";
+}
+
+// BuzzBallz flavour colours sampled from the product art at buzzballz.com.
+// Order matters — first regex to match wins, so more specific names come first
+// (e.g. "limeade" before "lime", "pink lemon" before "lemon").
+const FLAVOUR_COLORS = [
+  [/horchata/i, "#ece9e1"],
+  [/colada/i, "#efede8"],                  // Lotta Colada — creamy white
+  [/choc/i, "#cf9c6b"],                    // Choc Tease
+  [/espresso|coffee/i, "#4f3120"],         // Espresso Martini — coffee brown
+  [/hazelnut|latte/i, "#a07c54"],          // Hazelnut Latte
+  [/berry\s*cherry|limeade/i, "#1fc1e6"],  // Berry Cherry Limeade — cyan (before "lime")
+  [/forbidden|apple/i, "#51c22e"],         // Forbidden Apple
+  [/lime/i, "#4fc21b"],                    // Lime 'Rita
+  [/grape/i, "#7c54e0"],                   // Grapes Gone Wild
+  [/strawberr/i, "#f22740"],               // Strawberry 'Rita
+  [/watermelon/i, "#fa1f8c"],              // Watermelon — magenta
+  [/pink\s*lemon|lemonsqueez/i, "#f49ab4"], // Pink Lemonsqueezy (before "lemon")
+  [/pineapple|jalape/i, "#ffe11f"],        // Pineapple Jalapeño — yellow
+  [/chil(i|li)|mango/i, "#d0b902"],        // Chili Mango — gold
+  [/tropic|tang/i, "#f7991f"],             // Tropic Tang — orange
+  [/passion/i, "#f7a81c"],                 // Passionfruit Martini — golden orange (GUESS, confirm)
+  [/peach/i, "#f4541f"],                   // Peachballz — coral
+  [/cran/i, "#9c1530"],                    // Cran Blaster — maroon
+  [/tequila/i, "#9fd14e"],                 // Tequila 'Rita — margarita green (GUESS, confirm)
+  [/'?rita/i, "#f22740"],                  // any other 'Rita → red
+  // Generic fallbacks for non-BuzzBallz stock (mixed cans, wine, soft drinks…)
+  [/white\s*wine/i, "#e6d98f"],            // canned white wine — pale straw
+  [/red\s*wine/i, "#7d1f2f"],              // canned red wine — burgundy
+  [/lemon/i, "#ffd400"],
+  [/blue\s*rasp|blueberr|blue/i, "#1e90ff"],
+  [/orange/i, "#ff8c00"],
+  [/cola|coke|rum|jack|whisk|bourbon/i, "#7a4a2b"],
+  [/vodka|gin|tonic|soda|lemonade/i, "#bfe9ff"],
+  [/cider/i, "#d9a441"],
+  [/beer|lager|ale|ipa|stout/i, "#e0a527"]
+];
+
+function resolveColor(product, meta) {
+  if (meta.color) return meta.color;
+  const name = product.name || "";
+  for (const [re, col] of FLAVOUR_COLORS) if (re.test(name)) return col;
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return `hsl(${h % 360}, 70%, 55%)`;
+}
+
+// "& Coke" mixers: a dark cola brown fills the bottom 2/3 of the can and the
+// spirit gets a distinct colour band on the top third, so Rum/Vodka/Jack are
+// distinguishable at a glance. First match wins.
+const COLA_BROWN = "#3a2414";
+const COKE_MIXES = [
+  [/jack|daniel/i, "#262626"], // Jack Daniel's — black label
+  [/vodka/i, "#cfe2ee"],       // vodka — clear / icy silver
+  [/rum/i, "#cf962e"],         // rum — gold
+  [/bourbon|whisk/i, "#b3701f"], // whiskey — amber
+  [/brandy/i, "#6e3410"],
+  [/tequila/i, "#d9c089"]
+];
+
+// Returns { color, color2 } — color2 set only for two-tone cans (coke mixes).
+function resolveColors(product, meta) {
+  if (meta.color) return { color: meta.color, color2: meta.color2 || null };
+  const name = product.name || "";
+  if (/\bcoke\b|\bcola\b/i.test(name)) { // \b so "Lotta Colada" isn't treated as a cola
+    const mix = COKE_MIXES.find(([re]) => re.test(name));
+    return mix ? { color: mix[1], color2: COLA_BROWN } : { color: COLA_BROWN, color2: null };
+  }
+  return { color: resolveColor(product, meta), color2: null };
+}
+
 async function loadConfig() { state.config = await jsonFetch("/api/config"); }
 
 async function loadProductMeta() {
@@ -404,9 +489,11 @@ function renderTabs(categories) {
 function renderProduct(product) {
   const meta = state.productMeta[product.stockline_id] || {};
   const hasImg = !!meta.image;
-  const imgHtml = hasImg
+  // With a real image, show it; otherwise show a bobbing low-poly 3D model.
+  const { color, color2 } = resolveColors(product, meta);
+  const visualHtml = hasImg
     ? `<div class="product-img"><img src="${escapeHtml(meta.image)}" alt="" loading="lazy"></div>`
-    : '';
+    : `<div class="product-3d" data-key="${escapeHtml(String(product.stockline_id))}" data-model="${escapeHtml(resolveModel(product, meta, productCategory(product)))}" data-color="${escapeHtml(color)}"${color2 ? ` data-color2="${escapeHtml(color2)}"` : ''}></div>`;
   const key = productKey(product.stockline_id);
   const qty = state.basket.get(key) || 0;
   const limit = itemLimit(product);
@@ -425,8 +512,8 @@ function renderProduct(product) {
         ${soldOut ? 'Sold out' : 'Add'}
       </button>`;
   return `
-    <article class="product${hasImg ? ' product--has-img' : ''}${soldOut ? ' product--sold-out' : ''}">
-      ${imgHtml}
+    <article class="product${hasImg ? ' product--has-img' : ' product--has-3d'}${soldOut ? ' product--sold-out' : ''}">
+      ${visualHtml}
       <div class="product-info">
         <h2 class="product-name">${escapeHtml(product.name)}</h2>
         ${descHtml}
@@ -523,6 +610,7 @@ function render() {
 
 function renderOutOfService(error) {
   state.screen = 'out-of-service';
+  stopScene();
   app.innerHTML = `
     <div class="status-screen">
       <h1>Out of Service</h1>
@@ -534,6 +622,7 @@ function renderOutOfService(error) {
 function renderComplete(order) {
   state.screen = 'complete';
   clearIdleTimer();
+  stopScene();
   app.innerHTML = `
     <div class="status-screen complete">
       <p class="complete-label">Asset Retrieval Terminal // Polybius Biotech Galactic Trade Network</p>
@@ -550,6 +639,7 @@ function renderComplete(order) {
 function renderPrinterError(payload) {
   state.screen = 'printer-error';
   clearIdleTimer();
+  stopScene();
   app.innerHTML = `
     <div class="status-screen">
       <h1>Transmit Error</h1>
@@ -594,6 +684,7 @@ document.addEventListener("click", event => {
     startIdleTimer();
     scheduleNextOrderGlitch();
     scheduleCRT();
+    startScene();
     if (state.products.length > 0) render();
     else loadStock();
     return;
@@ -758,6 +849,7 @@ async function boot() {
     await loadConfig();
     await loadProductMeta();
   } catch { /* non-fatal — show sleep screen, retry on first wake */ }
+  initScene();
   render();
   loadStock({ quiet: true });
   setInterval(() => loadStock({ quiet: true }), 60_000);

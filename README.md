@@ -117,17 +117,32 @@ by quicktill stockline ID:
     "image": "/images/products/some-beer.jpg",
     "category": "Craft Beer"
   },
-  "43": { "image": "/images/products/lemonade.jpg" }
+  "43": { "model": "ball", "color": "#1e90ff" }
 }
 ```
 
 | Field | Description |
 |---|---|
-| `image` | URL of a product image. Put files in `public/images/products/` and reference as `/images/products/filename.jpg`. Recommended: at least 400 × 280 px (card image area is 140 px tall). |
+| `image` | URL of a product image. Put files in `public/images/products/` and reference as `/images/products/filename.jpg`. Recommended: at least 400 × 280 px (card image area is 140 px tall). Setting an image replaces the 3D model for that product. |
 | `category` | Overrides the quicktill department for tab assignment. Useful if the till department names don't match what you want shown on the kiosk, or to split one department across multiple tabs. |
+| `model` | Overrides the 3D model shape: `can`, `ball` (BuzzBallz), or `bottle`. By default it's inferred from the name/category. |
+| `color` | Overrides the 3D model colour (any CSS colour, e.g. `#1e90ff`). By default it's guessed from the flavour in the product name. |
+| `color2` | Optional second colour for a two-tone can: bottom 2/3 uses `color2`, top 1/3 uses `color`. "& Coke" mixers get this automatically (cola-brown body, spirit-coloured top band). |
 
-Both fields are optional. Products without an entry show without an image and
-use the quicktill department as their category.
+All fields are optional. Products without an entry show a bobbing low-poly 3D
+model (colour and shape inferred from the name/category) and use the quicktill
+department as their category.
+
+### 3D product models
+
+Each card shows a small, cheap low-poly model that bobs and spins (`public/scene.js`).
+Models are built procedurally — there are no asset files to manage. three.js is
+vendored at `public/vendor/three.module.js` so the kiosk renders fully offline.
+
+The renderer is tuned for the Raspberry Pi: one shared WebGL context for the whole
+grid, no antialiasing, flat-shaded materials, ~2 meshes per model, 30 fps, and
+off-screen cards are skipped. It pauses entirely on the sleep and confirmation
+screens. If WebGL is unavailable it falls back silently to an empty card.
 
 Stockline IDs come from the quicktill database (`stockline.id`).
 
