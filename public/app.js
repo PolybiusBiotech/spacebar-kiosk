@@ -699,6 +699,7 @@ document.addEventListener("click", event => {
     startIdleTimer();
     scheduleNextOrderGlitch();
     scheduleCRT();
+    startScene();
     render();
     return;
   }
