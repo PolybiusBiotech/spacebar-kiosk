@@ -828,7 +828,9 @@ function fireCRT() {
     // Bar stutters slightly — sync pulse is unstable
     const barJitter = Math.random() > 0.88 ? (Math.random() - 0.5) * 6 : 0;
 
-    app.style.transform   = `translateY(${-p * h}px) translateX(${jitterX}px)`;
+    // Keep #app at its normal position so it stays interactive — clip the rolled-off top instead
+    app.style.clipPath    = `inset(${p * h}px 0 0 0)`;
+    app.style.transform   = `translateX(${jitterX}px)`;
     clone.style.transform = `translateY(${barY}px) translateX(${-jitterX * 0.65}px)`;
     bar.style.top         = `${barY - 10 + barJitter}px`;
 
@@ -842,6 +844,7 @@ function fireCRT() {
   function cleanup() {
     clearExtraSlots();
     app.style.transform = '';
+    app.style.clipPath  = '';
     clone.remove();
     bar.remove();
     crtRaf   = null;
