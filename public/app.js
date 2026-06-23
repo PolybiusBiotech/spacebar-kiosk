@@ -792,8 +792,8 @@ function fireCRT() {
     overflow:    'hidden',
     filter:      'contrast(1.06) saturate(0.88) brightness(0.9)',
     // Choppy multi-band mask — gives a torn/banded edge rather than a smooth fade
-    maskImage:   'linear-gradient(to bottom, transparent 0px, rgba(0,0,0,0.15) 5px, transparent 8px, rgba(0,0,0,0.5) 12px, transparent 15px, black 22px)',
-    webkitMaskImage: 'linear-gradient(to bottom, transparent 0px, rgba(0,0,0,0.15) 5px, transparent 8px, rgba(0,0,0,0.5) 12px, transparent 15px, black 22px)',
+    maskImage:   'linear-gradient(to bottom, transparent 0px, rgba(0,0,0,0.1) 4px, transparent 7px, rgba(0,0,0,0.4) 11px, transparent 15px, rgba(0,0,0,0.7) 20px, transparent 24px, black 32px)',
+    webkitMaskImage: 'linear-gradient(to bottom, transparent 0px, rgba(0,0,0,0.1) 4px, transparent 7px, rgba(0,0,0,0.4) 11px, transparent 15px, rgba(0,0,0,0.7) 20px, transparent 24px, black 32px)',
   });
   document.body.appendChild(clone);
   setExtraSlots(clone.querySelectorAll('.product-3d'));
@@ -818,9 +818,9 @@ function fireCRT() {
     // H-sync tears: sharp random X snaps that decay after a few frames
     if (ts >= jitterEnd) jitterX = 0;
     if (ts >= nextJitter) {
-      jitterX    = (Math.random() > 0.5 ? 1 : -1) * (6 + Math.random() * 22);
-      jitterEnd  = ts + 35 + Math.random() * 90;
-      nextJitter = ts + 160 + Math.random() * 500;
+      jitterX    = (Math.random() > 0.5 ? 1 : -1) * (10 + Math.random() * 38);
+      jitterEnd  = ts + 40 + Math.random() * 110;
+      nextJitter = ts + 120 + Math.random() * 380;
     }
 
     // Bar stutters slightly — sync pulse is unstable

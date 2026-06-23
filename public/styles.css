@@ -1228,20 +1228,22 @@ body.a11y-mode .btn-primary {
   position: fixed;
   left: -4px;
   right: -4px;
-  height: 48px;
+  height: 72px;
   pointer-events: none;
   z-index: 10001;
   /* chromatic fringing: magenta above blanking, cyan below, phosphor glow */
   background: linear-gradient(
     to bottom,
     transparent                   0px,
-    rgba(255, 20,  90, 0.22)      3px,
-    rgba(255, 20,  90, 0.08)      7px,
-    rgba(0,   0,   0,  1)        10px,
-    rgba(0,   0,   0,  1)        26px,
-    rgba(0,  220, 255, 0.18)     29px,
-    rgba(124, 193,  66, 0.09)    36px,
-    transparent                  48px
+    rgba(255, 20,  90, 0.15)      2px,
+    rgba(255, 20,  90, 0.35)      5px,
+    rgba(255, 20,  90, 0.12)     10px,
+    rgba(0,   0,   0,  1)        14px,
+    rgba(0,   0,   0,  1)        42px,
+    rgba(0,  220, 255, 0.30)     47px,
+    rgba(0,  220, 255, 0.12)     54px,
+    rgba(124, 193,  66, 0.08)    62px,
+    transparent                  72px
   );
   /* feTurbulence displacement makes the edges wavy/torn */
   filter: url(#crt-noise);
