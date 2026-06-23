@@ -901,6 +901,34 @@ boot();
 const maintenanceOverlay = document.getElementById("maintenance-overlay");
 let maintenanceReconnectDelay = 3000;
 let maintenanceGlitchTimer = null;
+let maintenanceCountdownInterval = null;
+
+function maintenanceCountdownText(reopeningAt) {
+  const [hh, mm] = reopeningAt.split(":").map(Number);
+  const now = new Date();
+  const target = new Date(now);
+  target.setHours(hh, mm, 0, 0);
+  if (target <= now) target.setDate(target.getDate() + 1);
+  const totalMins = Math.ceil((target - now) / 60000);
+  const hrs = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  if (hrs > 0) return `REOPENING IN ${hrs} HR${hrs !== 1 ? 'S' : ''} ${mins} MIN${mins !== 1 ? 'S' : ''}`;
+  return `REOPENING IN ${mins} MIN${mins !== 1 ? 'S' : ''}`;
+}
+
+function startMaintenanceCountdown(reopeningAt) {
+  clearInterval(maintenanceCountdownInterval);
+  const reopenEl = document.getElementById("maintenance-reopen");
+  if (!reopenEl || !reopeningAt) return;
+  const update = () => { reopenEl.textContent = maintenanceCountdownText(reopeningAt); };
+  update();
+  maintenanceCountdownInterval = setInterval(update, 30_000);
+}
+
+function stopMaintenanceCountdown() {
+  clearInterval(maintenanceCountdownInterval);
+  maintenanceCountdownInterval = null;
+}
 
 function scheduleMaintenanceGlitch() {
   maintenanceGlitchTimer = setTimeout(() => {
@@ -928,10 +956,9 @@ function connectKioskEvents() {
       const { active, reopeningAt } = JSON.parse(e.data);
       maintenanceOverlay.hidden = !active;
       const reopenEl = document.getElementById("maintenance-reopen");
-      if (reopenEl) {
-        reopenEl.hidden = !active || !reopeningAt;
-        reopenEl.textContent = reopeningAt ? `REOPENING ${reopeningAt}` : "";
-      }
+      if (reopenEl) reopenEl.hidden = !active || !reopeningAt;
+      if (active && reopeningAt) startMaintenanceCountdown(reopeningAt);
+      else stopMaintenanceCountdown();
       if (active) scheduleMaintenanceGlitch(); else stopMaintenanceGlitch();
       maintenanceReconnectDelay = 3000;
     } catch {}
