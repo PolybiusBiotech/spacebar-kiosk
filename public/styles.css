@@ -74,21 +74,7 @@ body {
   overflow: hidden;
 }
 
-/* CRT scanline overlay */
-.sleep::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    to bottom,
-    transparent 0px,
-    transparent 2px,
-    rgba(0, 0, 0, 0.12) 2px,
-    rgba(0, 0, 0, 0.12) 4px
-  );
-  pointer-events: none;
-  z-index: 1;
-}
+/* CRT scanlines are handled globally by .crt-overlay — no per-screen duplicate */
 
 .sleep-content {
   display: flex;
