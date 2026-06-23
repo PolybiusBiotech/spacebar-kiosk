@@ -258,7 +258,17 @@ function getEntry(el) {
     scene.add(makeLights());
     const model = buildModel(el.dataset.model, el.dataset.color, el.dataset.color2);
     scene.add(model);
-    entry = { scene, model, sig, phase: (hashString(key) % 1000) / 1000 * Math.PI * 2 };
+    const h0 = hashString(key);
+    const h1 = hashString(key + 'b');
+    const h2 = hashString(key + 'c');
+    const h3 = hashString(key + 'd');
+    entry = {
+      scene, model, sig,
+      phase:    (h0 % 1000) / 1000 * Math.PI * 2,
+      freqY:    1.0 + (h1 % 1000) / 1000 * 0.85,  // 1.0 – 1.85 hz
+      ampY:     0.09 + (h2 % 1000) / 1000 * 0.13,  // 0.09 – 0.22 units
+      rotSpeed: 0.40 + (h3 % 1000) / 1000 * 0.45,  // 0.40 – 0.85 rad/s
+    };
     entries.set(key, entry);
   }
   return entry;
@@ -398,10 +408,10 @@ function loop(now) {
     }
 
     const m = entry.model;
-    m.rotation.y = time * 0.6 + entry.phase + jrot;
-    m.rotation.x = Math.sin(time * 0.8 + entry.phase) * 0.12 + jrot * 0.5;
+    m.rotation.y = time * entry.rotSpeed + entry.phase + jrot;
+    m.rotation.x = Math.sin(time * entry.freqY * 0.55 + entry.phase) * 0.12 + jrot * 0.5;
     m.position.x = jx;
-    m.position.y = Math.sin(time * 1.4 + entry.phase) * 0.14 + jy;
+    m.position.y = Math.sin(time * entry.freqY + entry.phase) * entry.ampY + jy;
     m.scale.set(sx, sy, sz);
 
     renderer.render(entry.scene, camera);

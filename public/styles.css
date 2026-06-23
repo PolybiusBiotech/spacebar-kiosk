@@ -1203,14 +1203,24 @@ body.a11y-mode .btn-primary {
   inset: 0;
   pointer-events: none;
   z-index: 9999;
-  /* persistent faint scanlines */
+  /* persistent scanlines — slightly heavier than before */
   background: repeating-linear-gradient(
     0deg,
-    rgba(0,0,0,0.12) 0px,
-    rgba(0,0,0,0.12) 1px,
+    rgba(0,0,0,0.22) 0px,
+    rgba(0,0,0,0.22) 1px,
     transparent 1px,
     transparent 3px
   );
+}
+/* animated grain layer — screen blend shows on dark areas like real CRT static */
+.crt-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.11;
+  filter: url(#crt-grain);
+  mix-blend-mode: screen;
+  background: black;
 }
 
 /* sync bar — injected by JS, sits between the two rolling frames */
