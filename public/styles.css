@@ -147,9 +147,9 @@ body {
   text-transform: none;
   color: #FCA311;
   position: absolute;
-  left: -0.95em;
+  left: clamp(-0.5em, calc(-1.4em + 8vw), -1.4em);
   top: 0;
-  transform: translateY(-44%) rotate(-14deg);
+  transform: translateY(-62%) rotate(-14deg);
   transform-origin: left center;
   z-index: 3;
   filter: url(#spray-paint) drop-shadow(0 0 14px rgba(252,163,17,0.7)) drop-shadow(0 0 30px rgba(252,163,17,0.3));
