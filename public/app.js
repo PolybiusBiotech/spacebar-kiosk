@@ -223,6 +223,7 @@ document.getElementById('a11y-btn').addEventListener('click', () => {
     if (state.screen === 'sleep') {
       stopGlitch(); stopMicro();
       state.screen = 'order';
+      state.activeCategory = null;
       startIdleTimer();
       scheduleNextOrderGlitch();
       startScene();
@@ -685,6 +686,7 @@ document.addEventListener("click", event => {
   if (event.target.closest('[data-wake]')) {
     stopGlitch(); stopMicro(); stopCRT(); stopCompleteGlitch();
     state.screen = 'order';
+    state.activeCategory = null;
     startIdleTimer();
     scheduleNextOrderGlitch();
     scheduleCRT();
