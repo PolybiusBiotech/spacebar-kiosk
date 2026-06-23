@@ -964,11 +964,18 @@ body.a11y-mode .btn-primary {
   white-space: nowrap;
 }
 
+.basket-item .quantity {
+  flex-shrink: 0;
+}
+
 .basket-item-price {
   font-weight: 700;
   color: #7CC142;
   font-size: 0.88rem;
   white-space: nowrap;
+  flex-shrink: 0;
+  width: 5em;
+  text-align: right;
 }
 
 .basket-item .quantity button {
