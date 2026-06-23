@@ -65,6 +65,7 @@ export function loadConfig() {
     printerName: process.env.KIOSK_PRINTER_NAME ?? "",
     printCommand: process.env.KIOSK_PRINT_COMMAND ?? "lp",
     omsUrl: (process.env.KIOSK_OMS_URL ?? "").replace(/\/$/, ""),
+    printerDevice: process.env.KIOSK_PRINTER_DEVICE ?? "",
     publicDir: path.join(process.cwd(), "public")
   };
 }

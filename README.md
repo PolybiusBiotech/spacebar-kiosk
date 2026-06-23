@@ -67,6 +67,7 @@ Useful optional settings:
 Remote operations — required if the kiosk is unattended:
 
 - `KIOSK_OMS_URL`: base URL of the OMS server (e.g. `http://192.168.x.x:8081`). When set: (1) printer errors are POSTed to `/api/printer-alert` so the OMS staff screen can alert bar staff; (2) the kiosk server subscribes to OMS SSE on startup to receive maintenance mode changes — the full-screen "TERMINAL OFFLINE" overlay is driven by this. If not set, printer failures are visible on the kiosk screen but invisible to staff, and maintenance mode can only be set directly via `POST /api/maintenance` on the kiosk itself. Requires that the kiosk can reach the OMS server — confirm camp-network → VLAN routing with Luke before site.
+- `KIOSK_PRINTER_DEVICE`: USB device path for ESC/POS hardware status queries (e.g. `/dev/usb/lp0`). When set, the kiosk sends a `DLE EOT` status query to the printer before every print job, detecting paper-out, cover-open, and ribbon errors that CUPS/`lpstat` cannot see. Find the path with `ls /dev/usb/lp*`. Requires the kiosk user to be in the `lp` group (the CUPS install already does this). Leave blank to skip — CUPS-level detection (USB disconnection) remains active regardless.
 - `KIOSK_LISTEN_HOST`: host to bind the local server, default `127.0.0.1`. Set to `0.0.0.0` if you need the kiosk UI reachable from another device.
 - `KIOSK_DUMMY_PRINT`: if `true`, renders the slip to a file in `/tmp` instead of sending to CUPS. Useful for testing slip layout without a printer; auto-enabled in mock mode when `KIOSK_PRINT_ENABLED=true`.
 
