@@ -915,8 +915,8 @@ function maintenanceCountdownText(reopeningAt) {
   const totalMins = Math.ceil((target - now) / 60000);
   const hrs = Math.floor(totalMins / 60);
   const mins = totalMins % 60;
-  if (hrs > 0) return `REOPENING IN ${hrs} HR${hrs !== 1 ? 'S' : ''} ${mins} MIN${mins !== 1 ? 'S' : ''}`;
-  return `REOPENING IN ${mins} MIN${mins !== 1 ? 'S' : ''}`;
+  if (hrs > 0) return `maintenance scheduled in ${hrs} hr${hrs !== 1 ? 's' : ''} ${mins} min${mins !== 1 ? 's' : ''}`;
+  return `maintenance scheduled in ${mins} min${mins !== 1 ? 's' : ''}`;
 }
 
 function startMaintenanceCountdown(reopeningAt) {
