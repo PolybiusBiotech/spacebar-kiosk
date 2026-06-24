@@ -809,11 +809,24 @@ body.a11y-mode .btn-primary {
   flex-shrink: 0;
 }
 
+.product-price-abv {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .price {
   font-size: clamp(1.1rem, 2.5vw, 1.5rem);
   font-weight: 700;
   color: #7CC142;
   font-family: 'EurostileExt', 'Eurostile', sans-serif;
+  line-height: 1;
+}
+
+.product-abv {
+  font-size: clamp(0.65rem, 1.4vw, 0.8rem);
+  color: rgba(255,255,255,0.35);
+  letter-spacing: 0.05em;
   line-height: 1;
 }
 

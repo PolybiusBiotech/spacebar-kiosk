@@ -19,6 +19,8 @@ const state = {
 const IDLE_MS    = 2 * 60 * 1000;
 const A11Y_IDLE_MS = 5 * 60 * 1000;
 
+// ABV lookup — licensing requirement: price list must show ABV
+
 const money = value => {
   const number = Number.parseFloat(value);
   return Number.isFinite(number) ? `£${number.toFixed(2)}` : `£${value}`;
@@ -504,9 +506,7 @@ function renderProduct(product) {
   const limit = itemLimit(product);
   const soldOut = product.available === false || limit <= 0;
   const atMax = qty >= limit;
-  const descHtml = product.description
-    ? `<p class="product-desc">${escapeHtml(product.description)}</p>`
-    : '';
+  const descHtml = product.description ? `<p class="product-desc">${escapeHtml(product.description)}</p>` : '';
   const qtyControls = qty > 0
     ? `<div class="quantity">
         <button data-dec="${escapeHtml(String(product.stockline_id))}" aria-label="Remove one">−</button>
@@ -524,7 +524,10 @@ function renderProduct(product) {
         ${descHtml}
       </div>
       <div class="product-footer">
-        <span class="price">${money(product.price)}</span>
+        <div class="product-price-abv">
+          <span class="price">${money(product.price)}</span>
+          ${product.stocktype?.abv ? `<span class="product-abv">${escapeHtml(product.stocktype.abv)}% ABV</span>` : ''}
+        </div>
         ${qtyControls}
       </div>
     </article>
@@ -773,6 +776,7 @@ function stopCRT() {
 function fireCRT() {
   crtTimer = null;
   if (document.body.classList.contains('a11y-mode')) { scheduleCRT(); return; }
+  if (state.screen !== 'sleep') { scheduleCRT(); return; }
   const app = document.getElementById('app');
   if (!app) { scheduleCRT(); return; }
 
@@ -828,9 +832,11 @@ function fireCRT() {
     // Bar stutters slightly — sync pulse is unstable
     const barJitter = Math.random() > 0.88 ? (Math.random() - 0.5) * 6 : 0;
 
-    // Keep #app at its normal position so it stays interactive — clip the rolled-off top instead
-    app.style.clipPath    = `inset(${p * h}px 0 0 0)`;
-    app.style.transform   = `translateX(${jitterX}px)`;
+    // filter: brightness(1) creates a containing block for position:fixed descendants
+    // (translateX(0) alone is not enough in Chrome when the value is zero).
+    // translateY scrolls the live frame up so content lifts off rather than fading away.
+    app.style.filter      = 'brightness(1)';
+    app.style.transform   = `translateY(${-p * h}px) translateX(${jitterX}px)`;
     clone.style.transform = `translateY(${barY}px) translateX(${-jitterX * 0.65}px)`;
     bar.style.top         = `${barY - 10 + barJitter}px`;
 
@@ -843,8 +849,8 @@ function fireCRT() {
 
   function cleanup() {
     clearExtraSlots();
+    app.style.filter    = '';
     app.style.transform = '';
-    app.style.clipPath  = '';
     clone.remove();
     bar.remove();
     crtRaf   = null;

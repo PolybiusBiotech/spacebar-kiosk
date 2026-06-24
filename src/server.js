@@ -51,169 +51,25 @@ function mockStock(config) {
     expired_orders: [],
     items: [
       // ── Cocktails ──────────────────────────────────────────────
-      {
-        stockline_id: 101,
-        name: "Buzzballz Berry Cherry Limeade",
-        description: "200ml 15% ABV",
-        category: "Cocktails",
-        price: "6.50",
-        available: true,
-        available_quantity: "24",
-        available_display: "24"
-      },
-      {
-        stockline_id: 102,
-        name: "Buzzballz Chilli Mango",
-        description: "200ml 15% ABV",
-        category: "Cocktails",
-        price: "6.50",
-        available: true,
-        available_quantity: "24",
-        available_display: "24"
-      },
-      {
-        stockline_id: 103,
-        name: "Buzzballz Choc Tease",
-        description: "200ml 15% ABV",
-        category: "Cocktails",
-        price: "6.50",
-        available: true,
-        available_quantity: "24",
-        available_display: "24"
-      },
-      {
-        stockline_id: 104,
-        name: "Buzzballz Espresso Martini",
-        description: "200ml 15% ABV",
-        category: "Cocktails",
-        price: "6.50",
-        available: true,
-        available_quantity: "24",
-        available_display: "24"
-      },
-      {
-        stockline_id: 105,
-        name: "Buzzballz Lotta Colada",
-        description: "200ml 15% ABV",
-        category: "Cocktails",
-        price: "6.50",
-        available: true,
-        available_quantity: "24",
-        available_display: "24"
-      },
-      {
-        stockline_id: 106,
-        name: "Buzzballz Passionfruit Martini",
-        description: "200ml 15% ABV",
-        category: "Cocktails",
-        price: "6.50",
-        available: true,
-        available_quantity: "24",
-        available_display: "24"
-      },
-      {
-        stockline_id: 107,
-        name: "Buzzballz Strawberry 'Rita",
-        description: "200ml 15% ABV",
-        category: "Cocktails",
-        price: "6.50",
-        available: true,
-        available_quantity: "24",
-        available_display: "24"
-      },
-      {
-        stockline_id: 108,
-        name: "Buzzballz Tequila 'Rita",
-        description: "200ml 15% ABV",
-        category: "Cocktails",
-        price: "6.50",
-        available: true,
-        available_quantity: "24",
-        available_display: "24"
-      },
+      { stockline_id: 101, name: "BuzzBallz Berry Cherry Limeade",  description: "200ml", category: "Cocktails",     price: "6.50", available: true, available_quantity: "24", available_display: "24", stocktype: { abv: "13.5" } },
+      { stockline_id: 102, name: "BuzzBallz Chilli Mango",          description: "200ml", category: "Cocktails",     price: "6.50", available: true, available_quantity: "24", available_display: "24", stocktype: { abv: "13.5" } },
+      { stockline_id: 103, name: "BuzzBallz Choc Tease",            description: "200ml", category: "Cocktails",     price: "6.50", available: true, available_quantity: "24", available_display: "24", stocktype: { abv: "13.5" } },
+      { stockline_id: 104, name: "BuzzBallz Espresso Martini",      description: "200ml", category: "Cocktails",     price: "6.50", available: true, available_quantity: "24", available_display: "24", stocktype: { abv: "13.5" } },
+      { stockline_id: 105, name: "BuzzBallz Lotta Colada",          description: "200ml", category: "Cocktails",     price: "6.50", available: true, available_quantity: "24", available_display: "24", stocktype: { abv: "13.5" } },
+      { stockline_id: 106, name: "BuzzBallz Passionfruit Martini",  description: "200ml", category: "Cocktails",     price: "6.50", available: true, available_quantity: "24", available_display: "24", stocktype: { abv: "13.5" } },
+      { stockline_id: 107, name: "BuzzBallz Strawberry 'Rita",      description: "200ml", category: "Cocktails",     price: "6.50", available: true, available_quantity: "24", available_display: "24", stocktype: { abv: "13.5" } },
+      { stockline_id: 108, name: "BuzzBallz Tequila 'Rita",         description: "200ml", category: "Cocktails",     price: "6.50", available: true, available_quantity: "24", available_display: "24", stocktype: { abv: "13.5" } },
       // ── Spirit & Mixer ─────────────────────────────────────────
-      {
-        stockline_id: 201,
-        name: "Captain Morgan Gold and Pepsi Max",
-        description: "250ml",
-        category: "Spirit & Mixer",
-        price: "5.00",
-        available: true,
-        available_quantity: "48",
-        available_display: "48"
-      },
-      {
-        stockline_id: 202,
-        name: "Jack Daniels and Coca Cola",
-        description: "330ml",
-        category: "Spirit & Mixer",
-        price: "5.00",
-        available: true,
-        available_quantity: "48",
-        available_display: "48"
-      },
-      {
-        stockline_id: 203,
-        name: "Smirnoff and Cola",
-        description: "250ml",
-        category: "Spirit & Mixer",
-        price: "5.00",
-        available: true,
-        available_quantity: "48",
-        available_display: "48"
-      },
-      {
-        stockline_id: 204,
-        name: "Tanqueray and Tonic",
-        description: "250ml",
-        category: "Spirit & Mixer",
-        price: "5.00",
-        available: true,
-        available_quantity: "48",
-        available_display: "48"
-      },
+      { stockline_id: 201, name: "Captain Morgan Gold and Pepsi Max", description: "250ml", category: "Spirit & Mixer", price: "5.00", available: true, available_quantity: "48", available_display: "48", stocktype: { abv: "5" } },
+      { stockline_id: 202, name: "Jack Daniels and Coca Cola",       description: "330ml", category: "Spirit & Mixer", price: "5.00", available: true, available_quantity: "48", available_display: "48", stocktype: { abv: "5" } },
+      { stockline_id: 203, name: "Smirnoff and Cola",                description: "250ml", category: "Spirit & Mixer", price: "5.00", available: true, available_quantity: "48", available_display: "48", stocktype: { abv: "5" } },
+      { stockline_id: 204, name: "Tanqueray and Tonic",              description: "250ml", category: "Spirit & Mixer", price: "5.00", available: true, available_quantity: "48", available_display: "48", stocktype: { abv: "6.5" } },
       // ── Wine ───────────────────────────────────────────────────
-      {
-        stockline_id: 301,
-        name: "Nice Fizz",
-        description: "Sparkling 200ml",
-        category: "Wine",
-        price: "6.00",
-        available: true,
-        available_quantity: "24",
-        available_display: "24"
-      },
-      {
-        stockline_id: 302,
-        name: "Nice Pale Rosé",
-        description: "187ml",
-        category: "Wine",
-        price: "6.00",
-        available: true,
-        available_quantity: "24",
-        available_display: "24"
-      },
-      {
-        stockline_id: 303,
-        name: "Nice Sauvignon Blanc",
-        description: "187ml",
-        category: "Wine",
-        price: "6.00",
-        available: true,
-        available_quantity: "24",
-        available_display: "24"
-      },
+      { stockline_id: 301, name: "Nice Fizz",              description: "Sparkling 200ml",      category: "Wine",         price: "6.00", available: true, available_quantity: "24", available_display: "24", stocktype: { abv: "10" } },
+      { stockline_id: 302, name: "Nice Pale Rosé",         description: "187ml",                category: "Wine",         price: "6.00", available: true, available_quantity: "24", available_display: "24", stocktype: { abv: "11" } },
+      { stockline_id: 303, name: "Nice Sauvignon Blanc",   description: "187ml",                category: "Wine",         price: "6.00", available: true, available_quantity: "24", available_display: "24", stocktype: { abv: "11" } },
       // ── Alcohol-free ───────────────────────────────────────────
-      {
-        stockline_id: 401,
-        name: "Sea Change Sparkling",
-        description: "Alcohol-free sparkling wine",
-        category: "Alcohol-free",
-        price: "6.00",
-        available: true,
-        available_quantity: "24",
-        available_display: "24"
-      },
+      { stockline_id: 401, name: "Sea Change Sparkling",   description: "Alcohol-free sparkling", category: "Alcohol-free", price: "6.00", available: true, available_quantity: "24", available_display: "24", stocktype: { abv: "0" } },
     ]
   };
 }
