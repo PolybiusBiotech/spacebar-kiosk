@@ -5,7 +5,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 
 import { loadConfig, validateRuntimeConfig } from "./config.js";
-import { expireOrders, fetchStock, placeOrder, TillwebError } from "./tillweb.js";
+import { fetchStock, placeOrder, TillwebError } from "./tillweb.js";
 import { printOrderSlip, checkPrinterStatus } from "./printer.js";
 
 const MIME_TYPES = {
@@ -415,15 +415,6 @@ export function createServer(config, { getStock: getStockOverride = null } = {})
         return;
       }
 
-      if (requestUrl.pathname === "/api/orders/expire" && req.method === "POST") {
-        const missing = config.mockMode ? [] : validateRuntimeConfig(config);
-        if (missing.length) {
-          sendJson(res, 503, { error: "misconfigured", message: "Kiosk is missing configuration.", missing });
-          return;
-        }
-        sendJson(res, 200, config.mockMode ? { location: config.location, expired_orders: [] } : await expireOrders(config));
-        return;
-      }
 
       if (req.method === "GET" || req.method === "HEAD") {
         // In dummy/mock mode, also serve the receipts/ directory for preview

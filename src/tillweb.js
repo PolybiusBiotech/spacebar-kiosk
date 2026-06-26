@@ -125,19 +125,12 @@ export async function fetchStock(config) {
 }
 
 export async function placeOrder(config, order) {
-  return requestJson(config, "/api/kiosk/orders.json", {
+  return requestJson(config, "/api/kiosk/orders", {
     method: "POST",
     body: JSON.stringify({
       location: config.location,
       idempotency_key: order.idempotency_key,
       items: order.items
     })
-  });
-}
-
-export async function expireOrders(config) {
-  return requestJson(config, "/api/kiosk/orders/expire.json", {
-    method: "POST",
-    body: JSON.stringify({ location: config.location })
   });
 }
