@@ -27,9 +27,9 @@
 
 
 @keyframes glow-pulse {
-  0%   { text-shadow: 0 0 8px rgba(190,0,254,0.95), 0 0 24px rgba(190,0,254,0.6), 0 0 48px rgba(190,0,254,0.3); opacity: 1; }
-  50%  { text-shadow: 0 0 4px rgba(190,0,254,0.4), 0 0 12px rgba(190,0,254,0.15); opacity: 0.65; }
-  100% { text-shadow: 0 0 8px rgba(190,0,254,0.95), 0 0 24px rgba(190,0,254,0.6), 0 0 48px rgba(190,0,254,0.3); opacity: 1; }
+  0%   { text-shadow: 0 0 8px rgba(124,193,66,0.95), 0 0 24px rgba(124,193,66,0.6), 0 0 48px rgba(124,193,66,0.3); opacity: 1; }
+  50%  { text-shadow: 0 0 4px rgba(124,193,66,0.4), 0 0 12px rgba(124,193,66,0.15); opacity: 0.65; }
+  100% { text-shadow: 0 0 8px rgba(124,193,66,0.95), 0 0 24px rgba(124,193,66,0.6), 0 0 48px rgba(124,193,66,0.3); opacity: 1; }
 }
 
 *, *::before, *::after {
@@ -173,7 +173,7 @@ body {
   font-weight: 700;
   font-size: clamp(1rem, 3.5vw, 1.6rem);
   letter-spacing: 0.35em;
-  color: #BE00FE;
+  color: #7CC142;
   text-transform: uppercase;
   animation: glow-pulse 2s ease-in-out infinite;
 }
