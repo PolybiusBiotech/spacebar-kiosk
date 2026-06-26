@@ -42,12 +42,12 @@ html, body {
   height: 100%;
   width: 100%;
   overflow: hidden;
-  background: #000F00;
+  background: #08000f;
 }
 
 body {
   font-family: 'Eurostile', ui-sans-serif, system-ui, sans-serif;
-  color: #e8ffe8;
+  color: #f0e0ff;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   touch-action: manipulation;
@@ -66,7 +66,7 @@ body {
 .sleep {
   position: fixed;
   inset: 0;
-  background: #000F00;
+  background: #08000f;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -88,7 +88,7 @@ body {
 .sleep-claw {
   width: min(42vw, 210px);
   display: block;
-  filter: drop-shadow(0 0 18px rgba(124, 193, 66, 0.35));
+  filter: drop-shadow(0 0 18px rgba(190, 0, 254, 0.35));
 }
 
 /* POLYBIUS / Base Asset Retrieval — stacked brand block */
@@ -103,7 +103,7 @@ body {
   font-family: 'EurostileExt', 'Eurostile', sans-serif;
   font-weight: 700;
   font-size: clamp(0.65rem, 2vw, 1rem);
-  color: rgba(124, 193, 66, 0.55);
+  color: rgba(190, 0, 254, 0.55);
   letter-spacing: 0.28em;
   text-transform: uppercase;
   line-height: 1;
@@ -123,11 +123,11 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   line-height: 1;
-  color: rgba(124, 193, 66, 0.5);
+  color: rgba(190, 0, 254, 0.5);
 }
 
 .bar-initial {
-  color: #7CC142;
+  color: #BE00FE;
   font-size: 2.4em;
   line-height: 0.85;
   vertical-align: -0.1em;
@@ -145,14 +145,14 @@ body {
   font-weight: 400;
   font-size: clamp(2.2rem, 6.5vw, 4rem);
   text-transform: none;
-  color: #FCA311;
+  color: #F77F02;
   position: absolute;
   left: clamp(-0.5em, calc(-1.4em + 8vw), -1.4em);
   top: 0;
   transform: translateY(-62%) rotate(-14deg);
   transform-origin: left center;
   z-index: 3;
-  filter: url(#spray-paint) drop-shadow(0 0 14px rgba(252,163,17,0.7)) drop-shadow(0 0 30px rgba(252,163,17,0.3));
+  filter: url(#spray-paint) drop-shadow(0 0 14px rgba(247,127,2,0.7)) drop-shadow(0 0 30px rgba(247,127,2,0.3));
   white-space: nowrap;
 }
 
@@ -161,7 +161,7 @@ body {
   font-family: 'Eurostile', sans-serif;
   font-weight: 400;
   font-size: clamp(0.6rem, 1.8vw, 0.95rem);
-  color: rgba(124, 193, 66, 0.45);
+  color: rgba(190, 0, 254, 0.45);
   letter-spacing: 0.28em;
   text-transform: uppercase;
   margin-top: 0.3em;
@@ -185,11 +185,11 @@ body {
   font-weight: 400;
   font-style: normal;
   text-transform: none;
-  color: #FCA311;
+  color: #F77F02;
   letter-spacing: 0;
   display: inline-block;
   transform: rotate(-3deg) translateY(2px);
-  filter: url(#spray-paint) drop-shadow(0 0 10px rgba(252,163,17,0.65)) drop-shadow(0 0 24px rgba(252,163,17,0.25));
+  filter: url(#spray-paint) drop-shadow(0 0 10px rgba(247,127,2,0.65)) drop-shadow(0 0 24px rgba(247,127,2,0.25));
 }
 
 /* ── Accessibility mode ───────────────────────────────────── */
@@ -199,14 +199,14 @@ body {
   bottom: 0.875rem;
   right: 0.875rem;
   background: rgba(0, 12, 0, 0.85);
-  border: 1px solid rgba(124, 193, 66, 0.2);
+  border: 1px solid rgba(190, 0, 254, 0.2);
   border-radius: 50%;
   width: 44px;
   height: 44px;
   font-size: 1.3rem;
   cursor: pointer;
   z-index: 2000;
-  color: rgba(124, 193, 66, 0.35);
+  color: rgba(190, 0, 254, 0.35);
   transition: color 0.15s, border-color 0.15s;
   display: flex;
   align-items: center;
@@ -216,11 +216,11 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-.a11y-btn:active { color: #7CC142; border-color: rgba(124, 193, 66, 0.7); }
+.a11y-btn:active { color: #BE00FE; border-color: rgba(190, 0, 254, 0.7); }
 
 body.a11y-mode .a11y-btn {
-  color: #7CC142;
-  border-color: rgba(124, 193, 66, 0.5);
+  color: #BE00FE;
+  border-color: rgba(190, 0, 254, 0.5);
   /* Move to left so it doesn't overlap the basket's Confirm Order button */
   right: auto;
   left: 0.875rem;
@@ -354,7 +354,7 @@ body.a11y-mode .btn-primary {
   position: absolute;
   left: 0; right: 0;
   height: 3px;
-  background: linear-gradient(90deg, transparent 5%, rgba(190,0,254,0.85) 25%, rgba(124,193,66,0.65) 65%, transparent 95%);
+  background: linear-gradient(90deg, transparent 5%, rgba(190,0,254,0.85) 25%, rgba(190,0,254,0.65) 65%, transparent 95%);
   top: 40%;
   opacity: 0;
   pointer-events: none;
@@ -427,7 +427,7 @@ body.a11y-mode .btn-primary {
   position: absolute;
   left: 0; right: 0;
   height: 3px;
-  background: linear-gradient(90deg, transparent 5%, rgba(124,193,66,0.7) 30%, rgba(190,0,254,0.55) 70%, transparent 95%);
+  background: linear-gradient(90deg, transparent 5%, rgba(190,0,254,0.7) 30%, rgba(190,0,254,0.55) 70%, transparent 95%);
   top: 30%;
   opacity: 0;
   pointer-events: none;
@@ -496,7 +496,7 @@ body.a11y-mode .btn-primary {
 
 @keyframes order-flash-anim {
   0%   { opacity: 0;    background: transparent; }
-  6%   { opacity: 0.55; background: rgba(124,193,66,0.45); }
+  6%   { opacity: 0.55; background: rgba(190,0,254,0.45); }
   11%  { opacity: 0.8;  background: rgba(190,0,254,0.35); }
   16%  { opacity: 0.4;  background: rgba(255,255,255,0.12); }
   22%  { opacity: 0.65; background: rgba(0,220,255,0.3); }
@@ -571,7 +571,7 @@ body.a11y-mode .btn-primary {
 .catalog {
   display: flex;
   flex-direction: column;
-  background: #000F00;
+  background: #08000f;
   min-height: 0;
   min-width: 0;
   /* no overflow:hidden here — moved to .catalog-v so H/V glitch transforms can escape */
@@ -590,14 +590,14 @@ body.a11y-mode .btn-primary {
   align-items: center;
   gap: 12px;
   padding: 12px 22px;
-  border-bottom: 1px solid #0a3010;
+  border-bottom: 1px solid #1f0038;
   flex-shrink: 0;
 }
 
 .topbar h1 {
   font-family: 'EurostileExt', 'Eurostile', sans-serif;
   font-weight: 700;
-  color: #7CC142;
+  color: #BE00FE;
   line-height: 1;
 }
 
@@ -613,7 +613,7 @@ body.a11y-mode .btn-primary {
   gap: 0.4em;
   font-family: 'EurostileExt', 'Eurostile', sans-serif;
   font-weight: 700;
-  color: #7CC142;
+  color: #BE00FE;
   line-height: 1;
 }
 
@@ -624,15 +624,15 @@ body.a11y-mode .btn-primary {
 }
 
 .topbar p {
-  color: #4a7a4a;
+  color: #7a00a8;
   font-size: 0.85rem;
   flex: 1;
 }
 
 .refresh {
-  background: #001200;
-  color: #7CC142;
-  border: 1px solid #0a3010;
+  background: #0b0018;
+  color: #BE00FE;
+  border: 1px solid #1f0038;
   border-radius: 4px;
   padding: 6px 12px;
   font-size: 1.1rem;
@@ -642,7 +642,7 @@ body.a11y-mode .btn-primary {
   line-height: 1;
 }
 
-.refresh:active { background: #001a00; }
+.refresh:active { background: #110025; }
 
 /* ── Banners ──────────────────────────────────────────────── */
 
@@ -672,22 +672,22 @@ body.a11y-mode .btn-primary {
   overflow-x: auto;
   gap: 0;
   padding: 0 22px;
-  border-bottom: 1px solid #0a3010;
-  background: #000F00;
+  border-bottom: 1px solid #1f0038;
+  background: #08000f;
   flex-shrink: 0;
   scrollbar-width: thin;
-  scrollbar-color: #4a7a4a #001800;
+  scrollbar-color: #7a00a8 #0f0022;
 }
 
 .tabs::-webkit-scrollbar { height: 3px; }
-.tabs::-webkit-scrollbar-track { background: #001800; }
-.tabs::-webkit-scrollbar-thumb { background: #4a7a4a; border-radius: 2px; }
+.tabs::-webkit-scrollbar-track { background: #0f0022; }
+.tabs::-webkit-scrollbar-thumb { background: #7a00a8; border-radius: 2px; }
 
 .tab {
   background: none;
   border: none;
   border-bottom: 3px solid transparent;
-  color: #4a7a4a;
+  color: #7a00a8;
   font-family: 'EurostileExt', 'Eurostile', sans-serif;
   font-weight: 700;
   font-size: 0.9rem;
@@ -701,7 +701,7 @@ body.a11y-mode .btn-primary {
 }
 
 .tab--active {
-  color: #7CC142;
+  color: #BE00FE;
   border-bottom-color: #BE00FE;
 }
 
@@ -718,17 +718,17 @@ body.a11y-mode .btn-primary {
   min-height: 0;
   align-content: start;
   scrollbar-width: thin;
-  scrollbar-color: #0a3010 transparent;
+  scrollbar-color: #1f0038 transparent;
 }
 
 .products::-webkit-scrollbar { width: 4px; }
 .products::-webkit-scrollbar-track { background: transparent; }
-.products::-webkit-scrollbar-thumb { background: #0a3010; border-radius: 2px; }
+.products::-webkit-scrollbar-thumb { background: #1f0038; border-radius: 2px; }
 
 .loading {
   grid-column: 1 / -1;
   text-align: center;
-  color: #4a7a4a;
+  color: #7a00a8;
   padding: 2rem;
   font-size: 1rem;
 }
@@ -736,8 +736,8 @@ body.a11y-mode .btn-primary {
 /* ── Product card ─────────────────────────────────────────── */
 
 .product {
-  background: #001200;
-  border: 1px solid #0a3010;
+  background: #0b0018;
+  border: 1px solid #1f0038;
   border-radius: 6px;
   display: flex;
   flex-direction: column;
@@ -753,7 +753,7 @@ body.a11y-mode .btn-primary {
   height: 140px;
   overflow: hidden;
   border-radius: 6px 6px 0 0;
-  background: #001800;
+  background: #0f0022;
   flex-shrink: 0;
 }
 
@@ -786,7 +786,7 @@ body.a11y-mode .btn-primary {
 
 .product-name {
   font-size: clamp(0.95rem, 2.2vw, 1.3rem);
-  color: #e8ffe8;
+  color: #f0e0ff;
   margin: 0 0 4px;
   font-weight: 700;
   line-height: 1.25;
@@ -795,7 +795,7 @@ body.a11y-mode .btn-primary {
 
 .product-desc {
   font-size: 0.82rem;
-  color: #4a7a4a;
+  color: #7a00a8;
   margin: 0;
   line-height: 1.4;
 }
@@ -818,7 +818,7 @@ body.a11y-mode .btn-primary {
 .price {
   font-size: clamp(1.1rem, 2.5vw, 1.5rem);
   font-weight: 700;
-  color: #7CC142;
+  color: #BE00FE;
   font-family: 'EurostileExt', 'Eurostile', sans-serif;
   line-height: 1;
 }
@@ -871,9 +871,9 @@ body.a11y-mode .btn-primary {
 }
 
 .quantity button {
-  background: #001a00;
-  color: #7CC142;
-  border: 1px solid #0a3010;
+  background: #110025;
+  color: #BE00FE;
+  border: 1px solid #1f0038;
   border-radius: 4px;
   width: 34px;
   height: 34px;
@@ -887,11 +887,11 @@ body.a11y-mode .btn-primary {
   transition: background 0.1s;
 }
 
-.quantity button:active { background: #002a00; }
+.quantity button:active { background: #1a0030; }
 .quantity button:disabled { color: #1a3a1a; cursor: not-allowed; }
 
 .quantity span {
-  color: #e8ffe8;
+  color: #f0e0ff;
   font-weight: 700;
   font-size: 1rem;
   min-width: 22px;
@@ -901,9 +901,9 @@ body.a11y-mode .btn-primary {
 /* ── Basket ───────────────────────────────────────────────── */
 
 .basket {
-  background: #000800;
-  color: #e8ffe8;
-  border-top: 2px solid #0a3010;
+  background: #050008;
+  color: #f0e0ff;
+  border-top: 2px solid #1f0038;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -921,14 +921,14 @@ body.a11y-mode .btn-primary {
 .basket h2 {
   font-family: 'EurostileExt', 'Eurostile', sans-serif;
   font-weight: 700;
-  color: #7CC142;
+  color: #BE00FE;
   font-size: clamp(0.95rem, 2.2vw, 1.2rem);
 }
 
 .clear {
   background: transparent;
-  border: 1px solid rgba(124, 193, 66, 0.3);
-  color: #7CC142;
+  border: 1px solid rgba(190, 0, 254, 0.3);
+  color: #BE00FE;
   border-radius: 4px;
   padding: 4px 10px;
   font-size: 0.8rem;
@@ -937,21 +937,21 @@ body.a11y-mode .btn-primary {
   transition: background 0.15s;
 }
 
-.clear:active { background: rgba(124, 193, 66, 0.1); }
+.clear:active { background: rgba(190, 0, 254, 0.1); }
 
 .basket-items {
   flex: 1;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: #0a3010 transparent;
+  scrollbar-color: #1f0038 transparent;
 }
 
 .basket-items::-webkit-scrollbar { width: 3px; }
-.basket-items::-webkit-scrollbar-thumb { background: #0a3010; }
+.basket-items::-webkit-scrollbar-thumb { background: #1f0038; }
 
 .basket-empty {
-  border: 1px dashed rgba(124, 193, 66, 0.2);
-  color: rgba(232, 255, 232, 0.35);
+  border: 1px dashed rgba(190, 0, 254, 0.2);
+  color: rgba(240, 224, 255, 0.35);
   border-radius: 4px;
   padding: 12px;
   text-align: center;
@@ -963,7 +963,7 @@ body.a11y-mode .btn-primary {
   align-items: center;
   gap: 8px;
   padding: 5px 0;
-  border-bottom: 1px solid rgba(124, 193, 66, 0.12);
+  border-bottom: 1px solid rgba(190, 0, 254, 0.12);
 }
 
 .basket-item:last-child { border-bottom: none; }
@@ -971,7 +971,7 @@ body.a11y-mode .btn-primary {
 .basket-item-name {
   flex: 1;
   font-size: 0.88rem;
-  color: #e8ffe8;
+  color: #f0e0ff;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -983,7 +983,7 @@ body.a11y-mode .btn-primary {
 
 .basket-item-price {
   font-weight: 700;
-  color: #7CC142;
+  color: #BE00FE;
   font-size: 0.88rem;
   white-space: nowrap;
   flex-shrink: 0;
@@ -1002,13 +1002,13 @@ body.a11y-mode .btn-primary {
   justify-content: space-between;
   align-items: center;
   padding: 4px 0 2px;
-  border-top: 1px solid rgba(124, 193, 66, 0.2);
+  border-top: 1px solid rgba(190, 0, 254, 0.2);
   flex-shrink: 0;
 }
 
 .basket-total span {
   font-size: 0.9rem;
-  color: #4a7a4a;
+  color: #7a00a8;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -1018,7 +1018,7 @@ body.a11y-mode .btn-primary {
   font-family: 'EurostileExt', 'Eurostile', sans-serif !important;
   font-weight: 700;
   font-size: clamp(1rem, 2.5vw, 1.3rem);
-  color: #7CC142 !important;
+  color: #BE00FE !important;
 }
 
 .checkout {
@@ -1050,7 +1050,7 @@ body.a11y-mode .btn-primary {
 .status-screen {
   position: fixed;
   inset: 0;
-  background: #000F00;
+  background: #08000f;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1065,13 +1065,13 @@ body.a11y-mode .btn-primary {
   font-family: 'EurostileExt', 'Eurostile', sans-serif;
   font-weight: 700;
   font-size: clamp(1.8rem, 6vw, 3rem);
-  color: #7CC142;
+  color: #BE00FE;
   line-height: 1.1;
 }
 
 .status-screen p {
   font-size: clamp(1rem, 2.5vw, 1.3rem);
-  color: rgba(232, 255, 232, 0.7);
+  color: rgba(240, 224, 255, 0.7);
   max-width: 480px;
   line-height: 1.5;
 }
@@ -1081,11 +1081,11 @@ body.a11y-mode .btn-primary {
   font-size: clamp(0.6rem, 1.5vw, 0.75rem);
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(124, 193, 66, 0.45);
+  color: rgba(190, 0, 254, 0.45);
 }
 
 .order-number {
-  background: #001200;
+  background: #0b0018;
   border: 1px solid #BE00FE;
   color: #BE00FE;
   font-family: 'EurostileExt', 'Eurostile', sans-serif;
@@ -1159,7 +1159,7 @@ body.a11y-mode .btn-primary {
   position: fixed;
   inset: 0;
   z-index: 9998;
-  background: #000F00;
+  background: #08000f;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1173,7 +1173,7 @@ body.a11y-mode .btn-primary {
   font-weight: 700;
   letter-spacing: 0.25em;
   text-transform: uppercase;
-  color: #7CC142;
+  color: #BE00FE;
   text-align: center;
 }
 .maintenance-sub {
@@ -1181,14 +1181,14 @@ body.a11y-mode .btn-primary {
   font-size: clamp(0.65rem, 2vw, 0.85rem);
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: rgba(124,193,66,0.45);
+  color: rgba(190,0,254,0.45);
 }
 .maintenance-reopen {
   font-family: 'Eurostile', ui-sans-serif, system-ui, sans-serif;
   font-size: clamp(0.8rem, 2.5vw, 1.1rem);
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(124,193,66,0.7);
+  color: rgba(190,0,254,0.7);
 }
 @keyframes maintenance-glitch-h {
   0%   { transform: translate(0,0) skewX(0); filter: none; opacity: 1; }
