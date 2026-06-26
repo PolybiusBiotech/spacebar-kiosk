@@ -701,8 +701,8 @@ body.a11y-mode .btn-primary {
 }
 
 .tab--active {
-  color: #BE00FE;
-  border-bottom-color: #BE00FE;
+  color: #F9E200;
+  border-bottom-color: #F9E200;
 }
 
 /* ── Products grid ────────────────────────────────────────── */
@@ -786,7 +786,7 @@ body.a11y-mode .btn-primary {
 
 .product-name {
   font-size: clamp(0.95rem, 2.2vw, 1.3rem);
-  color: #f0e0ff;
+  color: #F9E200;
   margin: 0 0 4px;
   font-weight: 700;
   line-height: 1.25;
@@ -818,7 +818,7 @@ body.a11y-mode .btn-primary {
 .price {
   font-size: clamp(1.1rem, 2.5vw, 1.5rem);
   font-weight: 700;
-  color: #BE00FE;
+  color: #F77F02;
   font-family: 'EurostileExt', 'Eurostile', sans-serif;
   line-height: 1;
 }
