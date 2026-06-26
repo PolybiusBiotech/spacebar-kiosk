@@ -405,6 +405,17 @@ export function createServer(config, { getStock: getStockOverride = null } = {})
         return;
       }
 
+      if (requestUrl.pathname === "/api/sale-positions" && req.method === "POST") {
+        const body = await readJson(req);
+        const { order_ref, buzzballz_sold } = body ?? {};
+        if (Array.isArray(buzzballz_sold) && buzzballz_sold.length) {
+          const summary = buzzballz_sold.map(b => `pos${b.position} "${b.name}" x${b.qty}`).join(", ");
+          console.log(`[pos-test] order=${order_ref} sold: ${summary}`);
+        }
+        sendJson(res, 200, { ok: true });
+        return;
+      }
+
       if (requestUrl.pathname === "/api/maintenance" && req.method === "POST") {
         const body = await readJson(req);
         maintenanceMode = Boolean(body.active);

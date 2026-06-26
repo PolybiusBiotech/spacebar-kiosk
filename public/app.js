@@ -300,11 +300,58 @@ function getCategories() {
   return cats;
 }
 
+// ── BuzzBallz A/B position shuffle ─────────────────────────────────────────
+// Shuffled once per session so customers always see the same order if they
+// browse multiple times, but the order varies across sessions.
+// buzzballzOrder maps stockline_id → 0-based display position.
+let buzzballzOrder = null;
+
+function isBuzzball(p) {
+  return /buzzball/i.test(p.name || "");
+}
+
+function initBuzzballzShuffle() {
+  if (buzzballzOrder) return; // already set this session
+  const buzzballz = state.products.filter(isBuzzball);
+  // Fisher-Yates shuffle
+  for (let i = buzzballz.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [buzzballz[i], buzzballz[j]] = [buzzballz[j], buzzballz[i]];
+  }
+  buzzballzOrder = new Map(buzzballz.map((p, i) => [p.stockline_id, i]));
+  console.log("[pos-test] BuzzBallz order:", buzzballz.map((p, i) => `${i + 1}: ${p.name}`).join(", "));
+}
+
+function logBuzzballzPositions(orderRef) {
+  if (!buzzballzOrder) return;
+  const sold = basketItems()
+    .filter(item => isBuzzball(item.product))
+    .map(item => ({
+      name: item.product.name,
+      stockline_id: item.stocklineId,
+      position: (buzzballzOrder.get(item.stocklineId) ?? -1) + 1,
+      qty: item.qty,
+    }));
+  if (!sold.length) return;
+  fetch("/api/sale-positions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ order_ref: orderRef, buzzballz_sold: sold }),
+  }).catch(() => {});
+}
+
 function visibleProducts() {
   const list = state.activeCategory
     ? state.products.filter(p => productCategory(p) === state.activeCategory)
     : state.products;
-  return [...list].sort((a, b) => (a.available === false) - (b.available === false));
+  return [...list].sort((a, b) => {
+    const avail = (a.available === false) - (b.available === false);
+    if (avail !== 0) return avail;
+    const aPos = buzzballzOrder?.get(a.stockline_id) ?? null;
+    const bPos = buzzballzOrder?.get(b.stockline_id) ?? null;
+    if (aPos !== null && bPos !== null) return aPos - bPos;
+    return 0;
+  });
 }
 
 // ── 3D model selection ──────────────────────────────────────────────────────
@@ -404,6 +451,7 @@ async function loadStock({ quiet = false } = {}) {
   try {
     const stock = await jsonFetch("/api/stock");
     state.products = stock.items || [];
+    initBuzzballzShuffle();
     state.message = null;
     reconcileBasket();
   } catch (error) {
@@ -433,6 +481,7 @@ async function checkout() {
   const body = { idempotency_key: idempotencyKey, items: basketItems().map(item => ({ stockline_id: item.stocklineId, qty: item.qty })) };
   try {
     const order = await jsonFetch("/api/orders", { method: "POST", body: JSON.stringify(body) });
+    logBuzzballzPositions(order.order_ref ?? order.ref ?? "unknown");
     state.basket.clear();
     await loadStock({ quiet: true });
     renderComplete(order);
