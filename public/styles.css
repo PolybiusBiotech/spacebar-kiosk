@@ -795,7 +795,7 @@ body.a11y-mode .btn-primary {
 
 .product-desc {
   font-size: 0.82rem;
-  color: #7a00a8;
+  color: rgba(255,255,255,0.3);
   margin: 0;
   line-height: 1.4;
 }
