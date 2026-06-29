@@ -158,7 +158,7 @@ export async function checkPrinterStatus(config) {
   return cups;
 }
 
-async function dummyPrintSlip(order, slipData) {
+async function dummyPrintSlip(config, order, slipData) {
   const ref = order.order_ref ?? "unknown";
   const receiptsDir = path.resolve("receipts");
   await mkdir(receiptsDir, { recursive: true });
@@ -168,7 +168,7 @@ async function dummyPrintSlip(order, slipData) {
   const escposPath   = path.join(receiptsDir, `receipt-${ref}-escpos.html`);
 
   const [html] = await Promise.all([
-    renderSlipHtml(order),
+    renderSlipHtml(order, config),
     writeFile(binPath, slipData),
     writeFile(escposPath, escposToHtml(slipData, `Receipt ${ref} — ESC/POS preview`)),
   ]);
@@ -185,10 +185,10 @@ async function dummyPrintSlip(order, slipData) {
 }
 
 export async function printOrderSlip(config, order) {
-  const slipData = await renderSlip(order);
+  const slipData = await renderSlip(order, config);
 
   if (config.dummyPrint || (config.mockMode && config.printEnabled)) {
-    await dummyPrintSlip(order, slipData);
+    await dummyPrintSlip(config, order, slipData);
     return { printed: true, skipped: false, dummy: true, bytes: slipData.length };
   }
 

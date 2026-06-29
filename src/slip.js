@@ -6,6 +6,7 @@
 // Requires the `qrcode` npm package.
 
 import QRCode from "qrcode";
+import { createHmac, createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -196,12 +197,59 @@ async function qrBytes(content, scale = 4) {
   ]);
 }
 
+// ── 1D barcode encoding ────────────────────────────────────────────────────
+// Format: 10 decimal digits — PPPPPCCCCCC
+//   PPPPP = permuted transaction ID (LCG: avoids leading zeros for small IDs)
+//   CCCCC = last 5 decimal digits of HMAC-SHA1(secret, trans_id)
+//
+// Permutation constants must match quicktill-kiosk-plugin (see recall.py).
+const PERM_A = 73141;
+const PERM_B = 49873;
+const PERM_M = 100000;
+
+function permute1d(x) {
+  return (PERM_A * x + PERM_B) % PERM_M;
+}
+
+function checkdigits1d(transId, secret) {
+  const msg = String(transId);
+  const hex = secret
+    ? createHmac("sha1", secret).update(msg).digest("hex")
+    : createHash("sha1").update(msg).digest("hex");
+  return (BigInt("0x" + hex) % 100000n).toString().padStart(5, "0");
+}
+
+function encode1d(transId, secret) {
+  return String(permute1d(transId)).padStart(5, "0")
+       + checkdigits1d(transId, secret);
+}
+
+function barcode1dBytes(code) {
+  return Buffer.concat([
+    Buffer.from([GS, 0x68, 80]),  // GS h 80 — barcode height 80 dots
+    Buffer.from([GS, 0x77, 3]),   // GS w 3 — module width 3
+    Buffer.from([GS, 0x48, 0]),   // GS H 0 — no HRI (printed as text below)
+    Buffer.from([GS, 0x6B, 5]),   // GS k 5 — ITF barcode
+    Buffer.from(code, "ascii"),
+    Buffer.from([0x00]),          // NUL terminator
+  ]);
+}
+
 // ── Shared receipt template ────────────────────────────────────────────────
 // Single source of truth for all copy and structure. Both renderSlipHtml and
 // renderSlip consume this — add lore here, not in the renderers.
 
-function buildReceiptData(order) {
+function buildReceiptData(order, config = {}) {
   const slip = order.slip ?? order;
+  let barcode;
+  if (config.barcodeFormat === "1d") {
+    const transId = Number.parseInt(order.order_ref, 10);
+    barcode = Number.isFinite(transId)
+      ? encode1d(transId, config.barcodeSecret ?? "")
+      : String(order.order_ref ?? "");
+  } else {
+    barcode = order.barcode ?? `KIOSK:${order.order_ref}`;
+  }
   return {
     // Header
     vendorLine:  "POLYBIUS BIOTECH GALACTIC TRADE NETWORK",
@@ -212,7 +260,7 @@ function buildReceiptData(order) {
     orderName: order.order_name ?? String(order.order_ref ?? "?"),
     lines:     slip.lines ?? [],
     total:     money(slip.total ?? order.total),
-    barcode:   order.barcode ?? `KIOSK:${order.order_ref}`,
+    barcode,
 
     // Status
     statusLine:    "CREDIT TRANSFER PENDING",
@@ -232,9 +280,15 @@ function buildReceiptData(order) {
 
 // ── HTML receipt ───────────────────────────────────────────────────────────
 
-export async function renderSlipHtml(order) {
-  const d = buildReceiptData(order);
-  const qrDataUrl = await QRCode.toDataURL(d.barcode, { errorCorrectionLevel: "M", width: 220, margin: 2 });
+export async function renderSlipHtml(order, config = {}) {
+  const d = buildReceiptData(order, config);
+  let barcodeSection;
+  if (config.barcodeFormat === "1d") {
+    barcodeSection = `<div class="qr"><p class="barcode-1d">${d.barcode}</p></div>`;
+  } else {
+    const qrDataUrl = await QRCode.toDataURL(d.barcode, { errorCorrectionLevel: "M", width: 220, margin: 2 });
+    barcodeSection = `<div class="qr"><img src="${qrDataUrl}" alt="${d.barcode}" width="180"></div>`;
+  }
 
   const lineRows = d.lines.map(item => {
     const qty   = item.quantity ?? 1;
@@ -272,6 +326,7 @@ export async function renderSlipHtml(order) {
   .status { text-align: center; font-size: 0.8rem; font-weight: bold; margin: 10px 0 2px; letter-spacing: 0.06em; }
   .status-sub { text-align: center; font-size: 0.7rem; color: #666; margin: 0 0 8px; }
   .qr { text-align: center; margin: 8px 0; }
+  .barcode-1d { font-size: 1.8rem; font-weight: bold; letter-spacing: 0.25em; margin: 4px 0; }
   .meta { font-size: 0.65rem; color: #aaa; text-align: center; margin: 2px 0; }
   .footer { font-size: 0.6rem; color: #bbb; text-align: center; margin: 2px 0; letter-spacing: 0.06em; }
 </style>
@@ -294,7 +349,7 @@ export async function renderSlipHtml(order) {
   </table>
   <p class="status">${d.statusLine}</p>
   <p class="status-sub">${d.statusSub}</p>
-  <div class="qr"><img src="${qrDataUrl}" alt="${d.barcode}" width="180"></div>
+  ${barcodeSection}
   <p class="meta">${d.barcode}</p>
   ${timeMeta}
   <hr class="divider">
@@ -306,8 +361,11 @@ export async function renderSlipHtml(order) {
 
 // ── ESC/POS receipt ────────────────────────────────────────────────────────
 
-export async function renderSlip(order) {
-  const d = buildReceiptData(order);
+export async function renderSlip(order, config = {}) {
+  const d = buildReceiptData(order, config);
+  const barcodeEscPos = config.barcodeFormat === "1d"
+    ? barcode1dBytes(d.barcode)
+    : await qrBytes(d.barcode, 6);
 
   const label  = "Total ";
   const spaces = " ".repeat(Math.max(0, COLS - label.length - PRICE_COL));
@@ -353,7 +411,7 @@ export async function renderSlip(order) {
     // status: bold only — no underline in target
     BOLD_ON, t(d.statusLine), BOLD_OFF,
     t(d.statusSub),
-    await qrBytes(d.barcode, 6),
+    barcodeEscPos,
     t(d.barcode),
     ...(d.createdAt ? [t(`Created: ${d.createdAt}`)] : []),
     ...(d.expiresAt ? [t(`Expires: ${d.expiresAt}`)] : []),

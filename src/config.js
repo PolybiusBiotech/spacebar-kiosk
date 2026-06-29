@@ -66,7 +66,9 @@ export function loadConfig() {
     printCommand: process.env.KIOSK_PRINT_COMMAND ?? "lp",
     omsUrl: (process.env.KIOSK_OMS_URL ?? "").replace(/\/$/, ""),
     printerDevice: process.env.KIOSK_PRINTER_DEVICE ?? "",
-    publicDir: path.join(process.cwd(), "public")
+    publicDir: path.join(process.cwd(), "public"),
+    barcodeFormat: process.env.KIOSK_BARCODE_FORMAT ?? "qr",
+    barcodeSecret: process.env.KIOSK_BARCODE_SECRET ?? "",
   };
 }
 

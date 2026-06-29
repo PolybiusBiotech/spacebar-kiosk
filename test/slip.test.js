@@ -48,7 +48,7 @@ test("renderSlip includes order name, item description, status, and total label"
   assert.ok(text.includes("9574"), "order name");
   assert.ok(text.includes("Club Mate 500ml"), "line item description");
   assert.ok(text.includes("BuzzBallz Watermelon"), "second line item");
-  assert.ok(text.includes("Grand total"), "total label");
+  assert.ok(text.includes("Total"), "total label");
   assert.ok(text.includes("CREDIT TRANSFER PENDING"), "status line");
   assert.ok(text.includes("Present this slip at the payment node"), "status sub");
 });
