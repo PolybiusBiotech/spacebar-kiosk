@@ -465,7 +465,7 @@ async function loadStock({ quiet = false } = {}) {
 
 function serviceMessage(error) {
   const code = error.payload?.error;
-  if (code === "missing-token" || code === "invalid-token" || code === "misconfigured") return "This kiosk is not configured correctly. Please ask for help.";
+  if (code === "invalid-token" || code === "misconfigured") return "This kiosk is not configured correctly. Please ask for help.";
   if (code === "location-not-allowed") return "This kiosk is not allowed to order for this location. Please ask for help.";
   if (code === "no-active-session") return "Ordering is not open yet. Please ask for help.";
   return error.message || "The kiosk cannot reach the till right now.";
@@ -477,18 +477,17 @@ async function checkout() {
   let stayOnResultScreen = false;
   state.message = null;
   render();
-  const idempotencyKey = crypto.randomUUID();
-  const body = { idempotency_key: idempotencyKey, items: basketItems().map(item => ({ stockline_id: item.stocklineId, qty: item.qty })) };
+  const body = { items: basketItems().map(item => ({ stockline_id: item.stocklineId, qty: item.qty })) };
   try {
     const order = await jsonFetch("/api/orders", { method: "POST", body: JSON.stringify(body) });
-    logBuzzballzPositions(order.order_ref ?? order.ref ?? "unknown");
+    logBuzzballzPositions(String(order.transaction_id ?? "unknown"));
     state.basket.clear();
     await loadStock({ quiet: true });
     renderComplete(order);
     stayOnResultScreen = true;
   } catch (error) {
     const code = error.payload?.error;
-    if (["insufficient-stock", "price-not-set", "unknown-stockline", "wrong-location"].includes(code)) {
+    if (["insufficient-stock", "price-not-set", "order-error"].includes(code)) {
       await loadStock({ quiet: true });
       state.message = { type: "warning", text: "Some items changed while you were ordering. Please review your basket and try again." };
     } else if (code === "printer-error") {
@@ -685,7 +684,7 @@ function renderComplete(order) {
       <p class="complete-label">Asset Retrieval Terminal // Polybius Biotech Galactic Trade Network</p>
       <h1>Transmission Complete</h1>
       <p>Take your receipt to the payment node.<br>Credit transfer required to collect assets.</p>
-      ${order.order_ref ? `<div class="order-number">${escapeHtml(String(order.order_ref))}</div>` : ''}
+      ${order.transaction_id != null ? `<div class="order-number">${escapeHtml(String(order.transaction_id))}</div>` : ''}
       <button class="btn-primary" data-new-order>New Request</button>
     </div>
   `;
@@ -701,7 +700,7 @@ function renderPrinterError(payload) {
     <div class="status-screen">
       <h1>Transmit Error</h1>
       <p>Order queued but receipt printer failed. Tell bar staff your reference.</p>
-      ${payload?.order_ref ? `<div class="order-number">${escapeHtml(String(payload.order_ref))}</div>` : ''}
+      ${payload?.transaction_id != null ? `<div class="order-number">${escapeHtml(String(payload.transaction_id))}</div>` : ''}
       <button class="btn-primary" data-retry>Acknowledged</button>
     </div>
   `;

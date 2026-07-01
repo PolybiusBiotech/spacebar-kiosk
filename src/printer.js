@@ -159,7 +159,7 @@ export async function checkPrinterStatus(config) {
 }
 
 async function dummyPrintSlip(config, order, slipData) {
-  const ref = order.order_ref ?? "unknown";
+  const ref = String(order.transaction_id ?? "unknown");
   const receiptsDir = path.resolve("receipts");
   await mkdir(receiptsDir, { recursive: true });
 
@@ -175,8 +175,8 @@ async function dummyPrintSlip(config, order, slipData) {
   await writeFile(htmlPath, html);
 
   console.log(`[dummy-print] ──────────────────────────────────────`);
-  console.log(`[dummy-print] ${order.order_name ?? ref}  total: £${order.total}`);
-  for (const line of order.slip?.lines ?? order.lines ?? []) {
+  console.log(`[dummy-print] ${ref}  total: £${order.total}`);
+  for (const line of order.lines ?? []) {
     const price = `£${Number.parseFloat(line.line_total ?? 0).toFixed(2)}`;
     console.log(`[dummy-print]   ${line.quantity} × ${line.description}  ${price}`);
   }

@@ -240,15 +240,14 @@ function barcode1dBytes(code) {
 // renderSlip consume this — add lore here, not in the renderers.
 
 function buildReceiptData(order, config = {}) {
-  const slip = order.slip ?? order;
   let barcode;
   if (config.barcodeFormat === "1d") {
-    const transId = Number.parseInt(order.order_ref, 10);
+    const transId = Number(order.transaction_id);
     barcode = Number.isFinite(transId)
       ? encode1d(transId, config.barcodeSecret ?? "")
-      : String(order.order_ref ?? "");
+      : String(order.transaction_id ?? "");
   } else {
-    barcode = order.barcode ?? `KIOSK:${order.order_ref}`;
+    barcode = order.barcode ?? "";
   }
   return {
     // Header
@@ -257,9 +256,9 @@ function buildReceiptData(order, config = {}) {
     locationLine: "Spaceport PB-4242 // Commercial Division",
 
     // Order
-    orderName: order.order_name ?? String(order.order_ref ?? "?"),
-    lines:     slip.lines ?? [],
-    total:     money(slip.total ?? order.total),
+    orderName: String(order.transaction_id ?? "?"),
+    lines:     order.lines ?? [],
+    total:     money(order.total),
     barcode,
 
     // Status

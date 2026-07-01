@@ -1,30 +1,11 @@
-import fs from "node:fs/promises";
 import http from "node:http";
 import https from "node:https";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
 
 import { loadConfig, validateRuntimeConfig } from "./config.js";
 import { fetchStock, placeOrder, TillwebError } from "./tillweb.js";
 import { printOrderSlip, checkPrinterStatus } from "./printer.js";
-
-const MIME_TYPES = {
-  ".html": "text/html; charset=utf-8",
-  ".css": "text/css; charset=utf-8",
-  ".js": "text/javascript; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".svg": "image/svg+xml"
-};
-
-function sendJson(res, status, payload) {
-  const body = JSON.stringify(payload);
-  res.writeHead(status, {
-    "Content-Type": "application/json; charset=utf-8",
-    "Cache-Control": "no-store",
-    "Content-Length": Buffer.byteLength(body)
-  });
-  res.end(body);
-}
+import { sendJson, serveStatic } from "@spacebar/shared/http-helpers.js";
 
 async function readJson(req) {
   const chunks = [];
@@ -92,32 +73,21 @@ function mockOrder(config, body) {
   const expires = new Date(now.getTime() + 15 * 60 * 1000);
 
   return {
-    order_ref: "9574",
-    order_name: "9574",
-    barcode: "KIOSK:9574381",
-    location: config.location,
+    barcode: "0957481733",
     transaction_id: 9574,
-    created: true,
     created_at: now.toISOString(),
     expires_at: expires.toISOString(),
-    idempotency_key: body.idempotency_key,
-    status: "accepted",
+    soft_only: false,
     total,
     lines,
-    slip: {
-      title: "9574",
-      created_at: now.toISOString(),
-      expires_at: expires.toISOString(),
-      unpaid: true,
-      total,
-      lines
-    },
-    expired_orders: []
+    paid: false,
+    collected: false,
+    cancelled: false,
   };
 }
 
 function logMockOrder(order) {
-  console.log(`[mock-order] ${order.order_name} total GBP ${order.total}`);
+  console.log(`[mock-order] ${order.transaction_id} total GBP ${order.total}`);
   for (const line of order.lines ?? []) {
     console.log(
       `[mock-order] ${line.quantity} x ${line.description} @ GBP ${line.unit_price} = GBP ${line.line_total}`
@@ -167,33 +137,6 @@ async function placeOrderWithNetworkRetry(config, order) {
   }
 }
 
-async function serveStatic(config, req, res) {
-  const requestUrl = new URL(req.url, `http://${req.headers.host}`);
-  const safePath = path
-    .normalize(decodeURIComponent(requestUrl.pathname))
-    .replace(/^(\.\.[/\\])+/, "");
-  const relativePath = safePath === "/" ? "index.html" : safePath.replace(/^[/\\]/, "");
-  const filePath = path.join(config.publicDir, relativePath);
-
-  if (!filePath.startsWith(config.publicDir)) {
-    res.writeHead(403);
-    res.end("Forbidden");
-    return;
-  }
-
-  try {
-    const body = await fs.readFile(filePath);
-    const ext = path.extname(filePath);
-    res.writeHead(200, {
-      "Content-Type": MIME_TYPES[ext] ?? "application/octet-stream",
-      "Cache-Control": "no-store"
-    });
-    res.end(body);
-  } catch {
-    res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
-    res.end("Not found");
-  }
-}
 
 // In-memory printer state. Updated after every print attempt and healthz check.
 const printerState = {
@@ -362,10 +305,7 @@ export function createServer(config, { getStock: getStockOverride = null } = {})
           return;
         }
 
-        const orderRequest = {
-          idempotency_key: body.idempotency_key || randomUUID(),
-          items: body.items
-        };
+        const orderRequest = { items: body.items };
         const order = config.mockMode
           ? mockOrder(config, orderRequest)
           : await placeOrderWithNetworkRetry(config, orderRequest);
@@ -430,10 +370,10 @@ export function createServer(config, { getStock: getStockOverride = null } = {})
       if (req.method === "GET" || req.method === "HEAD") {
         // In dummy/mock mode, also serve the receipts/ directory for preview
         if (config.mockMode && req.url.startsWith("/receipts/")) {
-          await serveStatic({ ...config, publicDir: path.join(process.cwd(), ".") }, req, res);
+          await serveStatic(path.join(process.cwd(), "."), req, res);
           return;
         }
-        await serveStatic(config, req, res);
+        await serveStatic(config.publicDir, req, res);
         return;
       }
 

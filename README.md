@@ -156,6 +156,12 @@ A full-screen "TERMINAL OFFLINE" overlay can be shown on the kiosk to halt order
 | `GET /api/events` | SSE stream. Sends a `maintenance` event with `{ active, reopeningAt }` on connect (replay) and whenever state changes. |
 | `POST /api/maintenance` | Body: `{ active, reopeningAt? }`. Sets maintenance mode locally; if OMS is connected the OMS is the authoritative source and will override this on the next SSE update. |
 
+## Dependencies
+
+Runtime: `qrcode` (QR raster for ESC/POS slip), `@spacebar/shared` (shared HTTP and tillweb helpers).
+
+`@spacebar/shared` is fetched from [PolybiusBiotech/spacebar-shared](https://github.com/PolybiusBiotech/spacebar-shared) by `npm install` — no manual setup needed.
+
 ## Tillweb API
 
 The kiosk server fetches products from the public EMF stockline API:
@@ -167,9 +173,7 @@ GET /api/stocklines.json?output=full&type=continuous&location=<location>
 It creates unpaid saved orders through the private kiosk API:
 
 ```text
-POST /api/kiosk/orders.json
-POST /api/kiosk/orders/expire.json
+POST /api/kiosk/orders/
 ```
 
-The private API still uses a bearer token. The browser UI never sees that token;
-only the local Node.js server sends it to tillweb.
+The private API requires a bearer token. The browser UI never sees that token; only the local Node.js server sends it to tillweb.
