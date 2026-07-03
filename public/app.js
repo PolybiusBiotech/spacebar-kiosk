@@ -574,6 +574,7 @@ function renderProduct(product) {
       <div class="product-footer">
         <div class="product-price-abv">
           <span class="price">${money(product.price)}</span>
+          ${product.stocktype?.unit ? `<span class="product-size">${escapeHtml(product.stocktype.unit)}</span>` : ''}
           ${product.stocktype?.abv ? `<span class="product-abv">${escapeHtml(product.stocktype.abv)}% ABV</span>` : ''}
         </div>
         ${qtyControls}

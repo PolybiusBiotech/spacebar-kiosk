@@ -15,6 +15,10 @@ function formatQuantity(quantity, unitName, unitNamePlural) {
   return unit ? `${quantity} ${unit}` : String(quantity);
 }
 
+function stripHtml(html) {
+  return html ? html.replace(/<[^>]*>/g, "").trim() : "";
+}
+
 export function stocklineToProduct(stockline) {
   const stocktype = stockline.stocktype;
   if (!stocktype || stockline.linetype !== "continuous") {
@@ -32,9 +36,11 @@ export function stocklineToProduct(stockline) {
     ? (typeof dept === "string" ? dept : (dept.description ?? dept.name ?? null))
     : null;
 
+  const name = [stocktype.manufacturer, stocktype.name].filter(Boolean).join(" ").trim() || stockline.name;
+
   return {
     stockline_id: stockline.id,
-    name: stockline.name,
+    name,
     location: stockline.location,
     line_type: stockline.linetype,
     category,
@@ -45,7 +51,7 @@ export function stocklineToProduct(stockline) {
       abv: stocktype.abv == null ? null : String(stocktype.abv),
       unit: stocktype.sale_unit_name
     },
-    description: `${stocktype.fullname} ${stocktype.sale_unit_name}`.trim(),
+    description: stripHtml(stocktype.tasting_notes) || `${stocktype.fullname} ${stocktype.sale_unit_name}`.trim(),
     price,
     available,
     available_quantity: String(availableQuantity),

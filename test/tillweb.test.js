@@ -5,8 +5,8 @@ import { stocklineToProduct } from "../src/tillweb.js";
 
 const BASE_STOCKTYPE = {
   id: 1,
-  manufacturer: "Club-Mate GmbH",
-  name: "Club Mate",
+  manufacturer: "Club Mate",
+  name: "Regular",
   fullname: "Club Mate Regular",
   abv: null,
   price: "2.80",
@@ -29,11 +29,32 @@ test("stocklineToProduct converts a well-formed continuous stockline", () => {
   const product = stocklineToProduct(BASE_STOCKLINE);
   assert.ok(product !== null);
   assert.equal(product.stockline_id, 42);
-  assert.equal(product.name, "Club Mate Regular 500ml");
+  assert.equal(product.name, "Club Mate Regular");
   assert.equal(product.price, "2.80");
   assert.equal(product.available, true);
   assert.equal(product.available_quantity, "24");
   assert.equal(product.category, "Soft Drinks");
+});
+
+test("stocklineToProduct prefers manufacturer + stocktype name over the stockline label", () => {
+  // Bar staff often type inconsistent casing/shorthand into the stockline
+  // label (e.g. "Buzzballz Chilli Mango"); stocktype.manufacturer/name carry
+  // the correct brand casing ("BuzzBallz") and should win.
+  const mismatched = {
+    ...BASE_STOCKLINE,
+    name: "club mate regular 500ml"
+  };
+  const product = stocklineToProduct(mismatched);
+  assert.equal(product.name, "Club Mate Regular");
+});
+
+test("stocklineToProduct falls back to the stockline label when manufacturer and name are absent", () => {
+  const noBrand = {
+    ...BASE_STOCKLINE,
+    stocktype: { ...BASE_STOCKTYPE, manufacturer: "", name: "" }
+  };
+  const product = stocklineToProduct(noBrand);
+  assert.equal(product.name, "Club Mate Regular 500ml");
 });
 
 test("stocklineToProduct returns null for non-continuous linetype", () => {
