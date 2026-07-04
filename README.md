@@ -15,7 +15,7 @@ customer the order ref to take to a human-operated till.
 
 ## Runtime Shape
 
-- A Node.js server serves the kiosk UI on localhost (one runtime dependency: `qrcode` for slip generation). Slip printing is complete — ESC/POS + QR raster via `src/slip.js`. **Outstanding before site:** slip logo artwork (`logoBytes()` in `slip.js` currently returns an empty buffer — add the Polybius/Space Bar logo bitmap there), and a physical test print on the U220A to verify QR scale.
+- A Node.js server serves the kiosk UI on localhost (runtime dependencies: `qrcode` and `@spacebar/shared` — see [Dependencies](#dependencies) below). Slip printing is complete — ESC/POS + QR raster via `src/slip.js`, including a working logo pipeline: `buildLogoBytes()` shells out to ImageMagick to rasterize `design/poly claw.bmp` into ESC/POS bytes, falling back to an empty buffer only if ImageMagick isn't available. **Outstanding before site:** a physical test print on the U220A to verify scale, columns, and ribbon colour.
 - The browser never sees the tillweb bearer token; the local server proxies API
   calls to tillweb.
 - Slips print through CUPS using `lp` by default.
@@ -63,6 +63,8 @@ Useful optional settings:
 - `KIOSK_PRINTER_NAME`: CUPS printer name. Blank uses the default printer.
 - `KIOSK_PRINT_COMMAND`: `lp` or `lpr`.
 - `KIOSK_PORT`: local HTTP port, default `8080`.
+- `KIOSK_BARCODE_FORMAT`: `qr` (default) or `1d`. Setting `1d` switches the printed slip from a QR code to a 10-digit ITF barcode (5-digit permuted transaction ID + 5-digit HMAC check digits) — for scanners that handle 1D codes better than QR at dot-matrix print quality.
+- `KIOSK_BARCODE_SECRET`: HMAC secret used to generate the `1d` barcode's check digits. Must match the secret configured in the till plugin (`quicktill-kiosk-plugin`), or the till will reject the barcode as invalid.
 
 Remote operations — required if the kiosk is unattended:
 
@@ -147,14 +149,26 @@ screens. If WebGL is unavailable it falls back silently to an empty card.
 
 Stockline IDs come from the quicktill database (`stockline.id`).
 
-## Maintenance mode
-
-A full-screen "TERMINAL OFFLINE" overlay can be shown on the kiosk to halt ordering. State is pushed from the OMS when `KIOSK_OMS_URL` is set; it can also be controlled directly:
+## Other endpoints
 
 | Endpoint | Notes |
 |---|---|
-| `GET /api/events` | SSE stream. Sends a `maintenance` event with `{ active, reopeningAt }` on connect (replay) and whenever state changes. |
-| `POST /api/maintenance` | Body: `{ active, reopeningAt? }`. Sets maintenance mode locally; if OMS is connected the OMS is the authoritative source and will override this on the next SSE update. |
+| `GET /api/config` | Returns `{ location, print_enabled, mock_mode, ready, missing }`. Used by the client on load to check the kiosk is configured and ready before enabling ordering — `ready` is always `true` in mock mode, otherwise `missing` lists any required settings (see above) that aren't set. |
+| `POST /api/sale-positions` | Body: `{ order_ref, buzzballz_sold: [{ position, name, qty }] }`. Logs which shelf position each BuzzBallz sale came from, for a merchandising placement test. Console-only — nothing is persisted. |
+
+## Maintenance mode
+
+A full-screen "TERMINAL OFFLINE" overlay can be shown on the kiosk to halt ordering. There are two independent kinds of maintenance state, both surfaced to the kiosk's browser UI as a single merged `maintenance` SSE event on `/api/events`:
+
+- **Site-wide `maintenance`** — affects every screen (badge, kiosk, till, OMS). Pushed from the OMS when `KIOSK_OMS_URL` is set, or can be set directly on the kiosk with `POST /api/maintenance` below.
+- **Kiosk-only `kiosk-maintenance`** — halts ordering on the kiosk (and badge) while OMS staff/customer/pay screens stay live. This is pushed to the kiosk only as a `kiosk-maintenance` SSE event from the OMS; there is no kiosk-side endpoint to set it. It's set on the OMS itself (`POST /kiosk-maintenance` there — see the OMS README) and requires `KIOSK_OMS_URL` to reach the kiosk at all.
+
+The kiosk merges the two: its own `/api/events` reports `active: true` if either the site-wide or kiosk-only flag is active.
+
+| Endpoint | Notes |
+|---|---|
+| `GET /api/events` | SSE stream. Sends a `maintenance` event with `{ active, reopeningAt }` on connect (replay) and whenever either upstream state changes. |
+| `POST /api/maintenance` | Body: `{ active, reopeningAt? }`. Sets the **site-wide** maintenance flag locally; if OMS is connected the OMS is the authoritative source and will override this on the next SSE update. Does not affect kiosk-only (`kiosk-maintenance`) state, which can only be set via the OMS. |
 
 ## Dependencies
 
