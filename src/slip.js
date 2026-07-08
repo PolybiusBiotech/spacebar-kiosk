@@ -1,12 +1,9 @@
 // ESC/POS slip generation for Epson U220A (9-pin dot matrix, 76mm, two-colour ribbon).
 //
-// QR code is rendered as a raster bitmap (GS v 0) — the U220A does not support
-// the GS ( k QR generation commands.
-//
-// Requires the `qrcode` npm package.
+// Barcodes are printed as 1D (ITF) only — QR was dropped because the dot
+// matrix printer's ink bleed makes QR codes unreliable to scan, and the
+// till's barcode scanners can't read QR at all.
 
-import QRCode from "qrcode";
-import { createHmac, createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -165,64 +162,10 @@ function buildLogoBytes() {
 // Built once at module load — falls back to empty if ImageMagick unavailable.
 const LOGO_ESC_POS = buildLogoBytes();
 
-async function qrBytes(content, scale = 4) {
-  const qr      = QRCode.create(content, { errorCorrectionLevel: "M" });
-  const size    = qr.modules.size;
-  const modules = qr.modules.data; // Uint8Array: 1 = dark, 0 = light
-
-  const pixelWidth  = size * scale;
-  const bytesPerRow = Math.ceil(pixelWidth / 8);
-  const pixelHeight = size * scale;
-  const raster      = Buffer.alloc(bytesPerRow * pixelHeight, 0);
-
-  for (let row = 0; row < size; row++) {
-    for (let col = 0; col < size; col++) {
-      if (!modules[row * size + col]) continue;
-      for (let sy = 0; sy < scale; sy++) {
-        for (let sx = 0; sx < scale; sx++) {
-          const px  = col * scale + sx;
-          const py  = row * scale + sy;
-          const idx = py * bytesPerRow + Math.floor(px / 8);
-          raster[idx] |= 1 << (7 - (px % 8));
-        }
-      }
-    }
-  }
-
-  return Buffer.concat([
-    Buffer.from([GS, 0x76, 0x30, 0x00,
-      bytesPerRow & 0xFF, (bytesPerRow >> 8) & 0xFF,
-      pixelHeight  & 0xFF, (pixelHeight  >> 8) & 0xFF]),
-    raster
-  ]);
-}
-
-// ── 1D barcode encoding ────────────────────────────────────────────────────
-// Format: 10 decimal digits — PPPPPCCCCCC
-//   PPPPP = permuted transaction ID (LCG: avoids leading zeros for small IDs)
-//   CCCCC = last 5 decimal digits of HMAC-SHA1(secret, trans_id)
-//
-// Permutation constants must match quicktill-kiosk-plugin (see recall.py).
-const PERM_A = 73141;
-const PERM_B = 49873;
-const PERM_M = 100000;
-
-function permute1d(x) {
-  return (PERM_A * x + PERM_B) % PERM_M;
-}
-
-function checkdigits1d(transId, secret) {
-  const msg = String(transId);
-  const hex = secret
-    ? createHmac("sha1", secret).update(msg).digest("hex")
-    : createHash("sha1").update(msg).digest("hex");
-  return (BigInt("0x" + hex) % 100000n).toString().padStart(5, "0");
-}
-
-function encode1d(transId, secret) {
-  return String(permute1d(transId)).padStart(5, "0")
-       + checkdigits1d(transId, secret);
-}
+// ── 1D barcode rendering ───────────────────────────────────────────────────
+// The barcode string itself (permutation + HMAC check digits) is generated
+// by emftillweb and returned verbatim as order.barcode — this module just
+// prints it.
 
 function barcode1dBytes(code) {
   return Buffer.concat([
@@ -239,16 +182,8 @@ function barcode1dBytes(code) {
 // Single source of truth for all copy and structure. Both renderSlipHtml and
 // renderSlip consume this — add lore here, not in the renderers.
 
-function buildReceiptData(order, config = {}) {
-  let barcode;
-  if (config.barcodeFormat === "1d") {
-    const transId = Number(order.transaction_id);
-    barcode = Number.isFinite(transId)
-      ? encode1d(transId, config.barcodeSecret ?? "")
-      : String(order.transaction_id ?? "");
-  } else {
-    barcode = order.barcode ?? "";
-  }
+function buildReceiptData(order) {
+  const barcode = order.barcode ?? "";
   return {
     // Header
     vendorLine:  "POLYBIUS BIOTECH GALACTIC TRADE NETWORK",
@@ -279,15 +214,9 @@ function buildReceiptData(order, config = {}) {
 
 // ── HTML receipt ───────────────────────────────────────────────────────────
 
-export async function renderSlipHtml(order, config = {}) {
-  const d = buildReceiptData(order, config);
-  let barcodeSection;
-  if (config.barcodeFormat === "1d") {
-    barcodeSection = `<div class="qr"><p class="barcode-1d">${d.barcode}</p></div>`;
-  } else {
-    const qrDataUrl = await QRCode.toDataURL(d.barcode, { errorCorrectionLevel: "M", width: 220, margin: 2 });
-    barcodeSection = `<div class="qr"><img src="${qrDataUrl}" alt="${d.barcode}" width="180"></div>`;
-  }
+export async function renderSlipHtml(order) {
+  const d = buildReceiptData(order);
+  const barcodeSection = `<div class="barcode"><p class="barcode-1d">${d.barcode}</p></div>`;
 
   const lineRows = d.lines.map(item => {
     const qty   = item.quantity ?? 1;
@@ -324,7 +253,7 @@ export async function renderSlipHtml(order, config = {}) {
   .total-row td { font-weight: bold; font-size: 1rem; border-top: 1px solid #000; padding-top: 4px; color: #cc0000; }
   .status { text-align: center; font-size: 0.8rem; font-weight: bold; margin: 10px 0 2px; letter-spacing: 0.06em; }
   .status-sub { text-align: center; font-size: 0.7rem; color: #666; margin: 0 0 8px; }
-  .qr { text-align: center; margin: 8px 0; }
+  .barcode { text-align: center; margin: 8px 0; }
   .barcode-1d { font-size: 1.8rem; font-weight: bold; letter-spacing: 0.25em; margin: 4px 0; }
   .meta { font-size: 0.65rem; color: #aaa; text-align: center; margin: 2px 0; }
   .footer { font-size: 0.6rem; color: #bbb; text-align: center; margin: 2px 0; letter-spacing: 0.06em; }
@@ -360,11 +289,9 @@ export async function renderSlipHtml(order, config = {}) {
 
 // ── ESC/POS receipt ────────────────────────────────────────────────────────
 
-export async function renderSlip(order, config = {}) {
-  const d = buildReceiptData(order, config);
-  const barcodeEscPos = config.barcodeFormat === "1d"
-    ? barcode1dBytes(d.barcode)
-    : await qrBytes(d.barcode, 6);
+export async function renderSlip(order) {
+  const d = buildReceiptData(order);
+  const barcodeEscPos = barcode1dBytes(d.barcode);
 
   const label  = "Total ";
   const spaces = " ".repeat(Math.max(0, COLS - label.length - PRICE_COL));

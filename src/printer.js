@@ -168,7 +168,7 @@ async function dummyPrintSlip(config, order, slipData) {
   const escposPath   = path.join(receiptsDir, `receipt-${ref}-escpos.html`);
 
   const [html] = await Promise.all([
-    renderSlipHtml(order, config),
+    renderSlipHtml(order),
     writeFile(binPath, slipData),
     writeFile(escposPath, escposToHtml(slipData, `Receipt ${ref} — ESC/POS preview`)),
   ]);
@@ -185,7 +185,7 @@ async function dummyPrintSlip(config, order, slipData) {
 }
 
 export async function printOrderSlip(config, order) {
-  const slipData = await renderSlip(order, config);
+  const slipData = await renderSlip(order);
 
   if (config.dummyPrint || (config.mockMode && config.printEnabled)) {
     await dummyPrintSlip(config, order, slipData);

@@ -15,7 +15,7 @@ customer the order ref to take to a human-operated till.
 
 ## Runtime Shape
 
-- A Node.js server serves the kiosk UI on localhost (runtime dependencies: `qrcode` and `@spacebar/shared` — see [Dependencies](#dependencies) below). Slip printing is complete — ESC/POS + QR raster via `src/slip.js`, including a working logo pipeline: `buildLogoBytes()` shells out to ImageMagick to rasterize `design/poly claw.bmp` into ESC/POS bytes, falling back to an empty buffer only if ImageMagick isn't available. **Outstanding before site:** a physical test print on the U220A to verify scale, columns, and ribbon colour.
+- A Node.js server serves the kiosk UI on localhost (runtime dependency: `@spacebar/shared` — see [Dependencies](#dependencies) below). Slip printing is complete — ESC/POS 1D (ITF) barcode via `src/slip.js`, including a working logo pipeline: `buildLogoBytes()` shells out to ImageMagick to rasterize `design/poly claw.bmp` into ESC/POS bytes, falling back to an empty buffer only if ImageMagick isn't available. **Outstanding before site:** a physical test print on the U220A to verify scale, columns, and ribbon colour.
 - The browser never sees the tillweb bearer token; the local server proxies API
   calls to tillweb.
 - Slips print through CUPS using `lp` by default.
@@ -63,8 +63,6 @@ Useful optional settings:
 - `KIOSK_PRINTER_NAME`: CUPS printer name. Blank uses the default printer.
 - `KIOSK_PRINT_COMMAND`: `lp` or `lpr`.
 - `KIOSK_PORT`: local HTTP port, default `8080`.
-- `KIOSK_BARCODE_FORMAT`: `qr` (default) or `1d`. Setting `1d` switches the printed slip from a QR code to a 10-digit ITF barcode (5-digit permuted transaction ID + 5-digit HMAC check digits) — for scanners that handle 1D codes better than QR at dot-matrix print quality.
-- `KIOSK_BARCODE_SECRET`: HMAC secret used to generate the `1d` barcode's check digits. Must match the secret configured in the till plugin (`quicktill-kiosk-plugin`), or the till will reject the barcode as invalid.
 
 Remote operations — required if the kiosk is unattended:
 
@@ -172,7 +170,7 @@ The kiosk merges the two: its own `/api/events` reports `active: true` if either
 
 ## Dependencies
 
-Runtime: `qrcode` (QR raster for ESC/POS slip), `@spacebar/shared` (shared HTTP and tillweb helpers).
+Runtime: `@spacebar/shared` (shared HTTP and tillweb helpers).
 
 `@spacebar/shared` is fetched from [PolybiusBiotech/spacebar-shared](https://github.com/PolybiusBiotech/spacebar-shared) by `npm install` — no manual setup needed.
 

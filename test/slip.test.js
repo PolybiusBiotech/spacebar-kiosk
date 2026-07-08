@@ -3,20 +3,19 @@ import test from "node:test";
 
 import { renderSlip, renderSlipHtml } from "../src/slip.js";
 
+// Matches emftillweb's order response shape (emf/kiosk.py _order_to_dict()):
+// barcode is the pre-permuted, pre-HMAC'd 1D barcode string — slip.js is a
+// thin pass-through and does no barcode computation of its own.
 const ORDER = {
-  order_ref: "9574",
-  order_name: "9574",
-  barcode: "KIOSK:9574381",
+  transaction_id: 9574,
+  barcode: "0957481234",
   total: "9.00",
   created_at: "2026-06-15T15:44:10.000Z",
   expires_at: "2026-06-15T16:44:10.000Z",
-  slip: {
-    total: "9.00",
-    lines: [
-      { description: "Club Mate 500ml", quantity: 2, unit_price: "2.80", line_total: "5.60" },
-      { description: "BuzzBallz Watermelon", quantity: 1, unit_price: "4.50", line_total: "4.50" }
-    ]
-  }
+  lines: [
+    { description: "Club Mate 500ml", quantity: 2, unit_price: "2.80", line_total: "5.60" },
+    { description: "BuzzBallz Watermelon", quantity: 1, unit_price: "4.50", line_total: "4.50" }
+  ]
 };
 
 // ── renderSlip (ESC/POS binary) ────────────────────────────────────────────
@@ -59,14 +58,15 @@ test("renderSlip includes Polybius lore header", async () => {
   assert.ok(text.includes("POLYBIUS BIOTECH GALACTIC TRADE NETWORK"), "vendor line");
 });
 
-test("renderSlip uses order.barcode for QR (not bare order_ref)", async () => {
-  // The barcode string is the input to qrBytes — it's encoded as a QR bitmap,
-  // so we can't grep for it directly. We verify the HTML version (which embeds
-  // it as text) to confirm buildReceiptData picks up order.barcode.
-  const orderWithDistinctBarcode = { ...ORDER, barcode: "KIOSK:9574999" };
-  const html = await renderSlipHtml(orderWithDistinctBarcode);
-  assert.ok(html.includes("KIOSK:9574999"), "uses order.barcode");
-  assert.ok(!html.includes("KIOSK:9574381"), "not the original fixture barcode");
+test("renderSlip prints order.barcode verbatim as an ITF (1D) barcode", async () => {
+  const buf = await renderSlip(ORDER);
+  const itfCommand = Buffer.concat([
+    Buffer.from([0x1D, 0x6B, 0x05]), // GS k 5 — ITF barcode
+    Buffer.from(ORDER.barcode, "ascii"),
+    Buffer.from([0x00]),
+  ]);
+  assert.ok(buf.includes(itfCommand), "ITF barcode command encodes order.barcode verbatim");
+  assert.ok(buf.toString("latin1").includes(ORDER.barcode), "barcode also printed as human-readable text");
 });
 
 // ── renderSlipHtml ─────────────────────────────────────────────────────────
@@ -86,21 +86,23 @@ test("renderSlipHtml includes order number, items, and total", async () => {
   assert.ok(html.includes("£9.00"), "total amount");
 });
 
-test("renderSlipHtml embeds QR code as base64 data URL", async () => {
+test("renderSlipHtml shows order.barcode as plain text, not a QR image", async () => {
   const html = await renderSlipHtml(ORDER);
-  assert.ok(html.includes("data:image/png;base64,"), "QR embedded as PNG data URL");
+  assert.ok(html.includes(`<p class="barcode-1d">${ORDER.barcode}</p>`), "barcode digits shown as text");
+  assert.ok(!html.includes(`<img src="data:image/png;base64,`), "no QR image embedded");
 });
 
-test("renderSlipHtml uses order.barcode in QR alt text and barcode display", async () => {
-  const html = await renderSlipHtml(ORDER);
-  assert.ok(html.includes('alt="KIOSK:9574381"'), "barcode in img alt text");
-  assert.ok(html.includes("KIOSK:9574381"), "barcode visible in receipt body");
+test("renderSlipHtml uses order.barcode verbatim (thin pass-through, no recomputation)", async () => {
+  const orderWithDistinctBarcode = { ...ORDER, barcode: "1234567890" };
+  const html = await renderSlipHtml(orderWithDistinctBarcode);
+  assert.ok(html.includes("1234567890"), "uses order.barcode");
+  assert.ok(!html.includes(ORDER.barcode), "not the original fixture barcode");
 });
 
-test("renderSlipHtml falls back to KIOSK:<order_ref> when barcode field absent", async () => {
+test("renderSlipHtml falls back to an empty barcode when the field is absent", async () => {
   const { barcode: _, ...orderWithoutBarcode } = ORDER;
   const html = await renderSlipHtml(orderWithoutBarcode);
-  assert.ok(html.includes("KIOSK:9574"), "fallback includes order_ref");
+  assert.ok(html.includes('<p class="barcode-1d"></p>'), "empty barcode, no crash");
 });
 
 test("renderSlipHtml includes timestamps when present", async () => {

@@ -13,8 +13,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@spacebar/shared": "git+https://github.com/PolybiusBiotech/spacebar-shared.git",
-    "qrcode": "^1.5.4"
+    "@spacebar/shared": "git+https://github.com/PolybiusBiotech/spacebar-shared.git"
   },
   "license": "GPL-3.0-or-later",
   "devDependencies": {
