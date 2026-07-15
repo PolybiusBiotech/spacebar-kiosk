@@ -51,15 +51,15 @@ test("clearPrinterQueue never rejects, regardless of cancel's availability or ex
   await assert.doesNotReject(() => clearPrinterQueue({ printerName: "" }));
 });
 
-// A real printer mid-job reported "printer SpacebarTill now printing
-// SpacebarTill-28.  enabled since ...\n\tSending data to printer." — this
-// was previously misclassified as broken (only "is printing" was checked
-// for, which lpstat never actually says) and the raw status text got
-// surfaced to staff as if it were an error, despite the printer being fine.
-test("parseLpstatOutput treats an active job (\"now printing\") as ok, not an error", () => {
+// "now printing" deliberately does NOT count as ok, on purpose, even though
+// it's also the wording for a healthy printer mid-job — a real paper-out
+// test showed CUPS leaves a stuck job showing "now printing" indefinitely
+// while silently retrying, so treating it as healthy made genuine failures
+// stop being detected (a prior version of this test asserted the opposite;
+// that was reverted after live testing).
+test("parseLpstatOutput does not treat an active job (\"now printing\") as ok — it can be a stuck failure", () => {
   const result = parseLpstatOutput("printer SpacebarTill now printing SpacebarTill-28.  enabled since Wed 15 Jul 2026 08:26:25 PM BST\n\tSending data to printer.\n");
-  assert.equal(result.ok, true);
-  assert.equal(result.status, "idle");
+  assert.equal(result.ok, false);
 });
 
 test("parseLpstatOutput treats a genuinely idle printer as ok", () => {

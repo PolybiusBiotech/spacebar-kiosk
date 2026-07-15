@@ -28,12 +28,17 @@ function printArgs(config) {
 
 // Parses `lpstat -p`'s stdout into a status result — split out from the
 // spawn/IO wrapper below so the string matching itself is unit-testable.
-// "now printing" (an active job) was previously missed — the check only
-// looked for "is printing", which lpstat never actually says — so a printer
-// mid-job was misreported as broken, with the raw idle-ish status text
-// surfaced to staff as if it were the error.
+//
+// "now printing <job>" (an active job) deliberately does NOT count as ok,
+// even though it's the wording for a printer healthily mid-job — CUPS
+// backends commonly leave a job stuck showing "now printing" indefinitely
+// while silently retrying a real failure (e.g. paper-out), so treating it
+// as healthy caused genuine failures to stop being detected. A brief false
+// "error" on a normal busy printer is a much smaller cost than silently
+// missing a real fault, so this falls through to the unrecognised-status
+// branch below (ok:false) on purpose.
 export function parseLpstatOutput(stdout) {
-  if (stdout.includes("is idle") || stdout.includes("now printing")) {
+  if (stdout.includes("is idle")) {
     return { ok: true, status: "idle", message: "Printer ready." };
   }
   if (stdout.includes("is not available")) {
