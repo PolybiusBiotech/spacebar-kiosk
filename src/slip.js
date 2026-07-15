@@ -1,14 +1,15 @@
-// ESC/POS slip generation for Epson U220A (9-pin dot matrix, 76mm, two-colour ribbon).
+// ESC/POS slip generation for Epson TM-U220B (9-pin dot matrix, 76mm, two-colour ribbon).
 //
 // Barcodes are printed as 1D (ITF) only — QR was dropped because the dot
 // matrix printer's ink bleed makes QR codes unreliable to scan, and the
 // till's barcode scanners can't read QR at all.
 //
-// The ITF bars are rasterized here and printed as a bitmap (GS v 0, same
-// mechanism as the logo) rather than via the printer's own GS k barcode
-// firmware — this printer doesn't render GS k correctly in either the
-// legacy NUL-terminated or newer explicit-length encoding, printing raw
-// command/data bytes as garbled text instead of bars either way.
+// The ITF bars are rasterized here and printed as an ESC * single-density
+// bit image (see escStarBitImage() below) rather than via the printer's own
+// GS k barcode firmware or GS v 0 raster graphics — neither is implemented
+// on this printer; both just print the raw command/data bytes as garbled
+// text. This is a known TM-U220/U220B quirk: see
+// github.com/mike42/escpos-php/issues/98.
 //
 // Requires ImageMagick (`magick`) on PATH to rasterize the logo — see
 // README's Raspberry Pi Install prerequisites.
@@ -166,15 +167,46 @@ function itemLine(item) {
   return Buffer.concat(out);
 }
 
-// GS v 0 — print a 1-bit raster image. Shared by the logo (from a PBM built
-// by ImageMagick) and the barcode (rasterized directly, no ImageMagick).
-function rasterCommand(bytesPerRow, height, raster) {
-  return Buffer.concat([
-    Buffer.from([GS, 0x76, 0x30, 0x00,
-      bytesPerRow & 0xFF, (bytesPerRow >> 8) & 0xFF,
-      height & 0xFF, (height >> 8) & 0xFF]),
-    raster,
-  ]);
+// ESC * m=0 (8-dot single-density) column-format bit image — confirmed
+// working on the TM-U220/TM-U220B by mike42/escpos-php (github.com/mike42/
+// escpos-php/issues/98): GS v 0 (raster graphics) isn't implemented on this
+// printer family at all, and even ESC * only works in single-density mode —
+// higher-density modes (the library's default) print garbage on the U220B,
+// which matches exactly what we saw with GS v 0.
+//
+// Line spacing is explicitly set to 16 dots between 8-pixel bands — per
+// the same reference, this is "the correct value on both TM-T20 and
+// TM-U220" for stacking single-density bands without gaps or overlap.
+const LINE_SPACING_16    = Buffer.from([ESC, 0x33, 16]); // ESC 3 16
+const LINE_SPACING_RESET = Buffer.from([ESC, 0x32]);     // ESC 2 — revert to default
+
+// `raster` is row-major, 1 bit per pixel, MSB-first, `bytesPerRow` bytes
+// per row, `height` rows — the same format buildLogoBytes()'s PBM parsing
+// and barcodeRasterBytes()'s bit-packing both already produce.
+function escStarBitImage(bytesPerRow, height, raster) {
+  const width = bytesPerRow * 8;
+  const bandCount = Math.ceil(height / 8);
+  const parts = [LINE_SPACING_16];
+
+  for (let band = 0; band < bandCount; band++) {
+    const yStart = band * 8;
+    const colData = Buffer.alloc(width);
+    for (let x = 0; x < width; x++) {
+      let byteVal = 0;
+      for (let bit = 0; bit < 8; bit++) {
+        const y = yStart + bit;
+        if (y >= height) continue;
+        const srcByteIndex = y * bytesPerRow + (x >> 3);
+        const srcBitMask = 0x80 >> (x & 7);
+        if (raster[srcByteIndex] & srcBitMask) byteVal |= (0x80 >> bit);
+      }
+      colData[x] = byteVal;
+    }
+    parts.push(Buffer.from([ESC, 0x2A, 0x00, width & 0xFF, (width >> 8) & 0xFF]), colData, Buffer.from([0x0A]));
+  }
+
+  parts.push(LINE_SPACING_RESET);
+  return Buffer.concat(parts);
 }
 
 function buildLogoBytes() {
@@ -203,7 +235,7 @@ function buildLogoBytes() {
     const bytesPerRow = Math.ceil(w / 8);
     const raster = pbm.slice(pos, pos + bytesPerRow * h);
 
-    return rasterCommand(bytesPerRow, h, raster);
+    return escStarBitImage(bytesPerRow, h, raster);
   } catch {
     return Buffer.alloc(0);
   }
@@ -215,9 +247,10 @@ const LOGO_ESC_POS = buildLogoBytes();
 // ── 1D barcode rendering ───────────────────────────────────────────────────
 // The barcode string itself (permutation + HMAC check digits) is generated
 // by emftillweb and returned verbatim as order.barcode — this module rasters
-// it as an Interleaved 2 of 5 (ITF) bitmap and prints it via GS v 0 (the same
-// raster mechanism as the logo), rather than the printer's own GS k barcode
-// firmware, which this printer doesn't implement correctly.
+// it as an Interleaved 2 of 5 (ITF) bitmap and prints it via the same
+// ESC * single-density bit image mechanism as the logo (see file header),
+// rather than the printer's own GS k barcode firmware, which this printer
+// doesn't implement correctly.
 
 // Element widths per digit (0=narrow, 1=wide), standard ITF encoding.
 const ITF_DIGIT_WIDTHS = [
@@ -282,7 +315,7 @@ export function barcodeRasterBytes(code) {
     x += el.width;
   }
 
-  return rasterCommand(bytesPerRow, ITF_HEIGHT_PX, raster);
+  return escStarBitImage(bytesPerRow, ITF_HEIGHT_PX, raster);
 }
 
 // ── Shared receipt template ────────────────────────────────────────────────
@@ -406,12 +439,7 @@ export async function renderSlip(order) {
   const parts = [
     INIT,
     SELECT_CP437,
-    // Order number leads the slip — it's the single thing staff/customers
-    // need to find fastest. SIZE_2X (not 3X) with normal line spacing:
-    // SIZE_3X combined with zero-line-spacing rendered as an illegible
-    // smudge on this printer.
-    ALIGN_CENTER, BOLD_ON, SIZE_2X, t(d.orderName), SIZE_RESET, BOLD_OFF,
-    t("-".repeat(COLS)),
+    ALIGN_CENTER,
     COLOR_RED, LOGO_ESC_POS, COLOR_BLACK,
     // vendor: Font B (condensed) to de-emphasise it — matches target's 0.6rem grey styling
     FONT_B, ...wrapWords(d.vendorLine, COLS).map(l => t(l)), FONT_A,
@@ -425,8 +453,12 @@ export async function renderSlip(order) {
     // difference in the target.
     ALIGN_CENTER, BOLD_ON, SIZE_RESET, t("Base Asset Retrieval System"), BOLD_OFF,
     ...wrapWords(d.locationLine, COLS).map(l => t(l)),
-    ALIGN_LEFT,
-    t("-".repeat(COLS)),
+    // Order number sits between the header and the item list — SIZE_2X
+    // (not 3X) with normal line spacing: SIZE_3X combined with zero-line-
+    // spacing rendered as an illegible smudge on this printer.
+    ALIGN_LEFT, t("-".repeat(COLS)),
+    ALIGN_CENTER, BOLD_ON, SIZE_2X, t(d.orderName), SIZE_RESET, BOLD_OFF,
+    ALIGN_LEFT, t("-".repeat(COLS)),
   ];
 
   for (const item of d.lines) {

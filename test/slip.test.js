@@ -61,24 +61,25 @@ test("renderSlip includes Polybius lore header", async () => {
   assert.ok(text.includes("NETWORK"), "vendor line, wrapped remainder");
 });
 
-// The barcode is rasterized as a bitmap and printed via GS v 0 rather than
-// the printer's own GS k barcode firmware, which this printer (an Epson
-// U220A, or at least this unit/firmware) doesn't implement correctly in
-// either the legacy or modern GS k encoding — see slip.js's header comment.
+// The barcode is rasterized as a bitmap and printed via ESC * in
+// single-density mode (not GS v 0 or GS k) — this printer, a confirmed
+// Epson TM-U220B, doesn't implement GS k barcode firmware or GS v 0 raster
+// graphics correctly, and even ESC * only works in single-density mode.
+// See slip.js's header comment and github.com/mike42/escpos-php/issues/98.
 
-test("barcodeRasterBytes returns a GS v 0 raster command", () => {
+test("barcodeRasterBytes sets 16-dot line spacing, then ESC * single-density bands, then resets spacing", () => {
   const raster = barcodeRasterBytes(ORDER.barcode);
-  assert.equal(raster[0], 0x1D, "GS");
-  assert.equal(raster[1], 0x76, "v");
-  assert.equal(raster[2], 0x30, "0");
-  assert.equal(raster[3], 0x00, "mode 0 (normal)");
+  assert.deepEqual([...raster.slice(0, 3)], [0x1B, 0x33, 16], "ESC 3 16 — 16-dot line spacing");
+  assert.deepEqual([...raster.slice(-2)], [0x1B, 0x32], "ESC 2 — line spacing reset at the end");
+  assert.ok(raster.includes(Buffer.from([0x1B, 0x2A, 0x00])), "contains an ESC * 0 single-density band");
 });
 
-test("barcodeRasterBytes encodes width/height matching the raster payload size", () => {
+test("barcodeRasterBytes emits one ESC * band per 8 vertical pixels", () => {
   const raster = barcodeRasterBytes(ORDER.barcode);
-  const bytesPerRow = raster[4] | (raster[5] << 8);
-  const height = raster[6] | (raster[7] << 8);
-  assert.equal(raster.length, 8 + bytesPerRow * height, "header dimensions match payload length");
+  const escStarHeader = Buffer.from([0x1B, 0x2A, 0x00]);
+  let count = 0, idx = 0;
+  while ((idx = raster.indexOf(escStarHeader, idx)) !== -1) { count++; idx += 1; }
+  assert.ok(count > 1, "barcode height requires multiple 8px bands");
 });
 
 test("barcodeRasterBytes produces different bars for different codes", () => {
@@ -99,10 +100,12 @@ test("renderSlip prints the barcode raster and the human-readable digits", async
   assert.ok(buf.toString("latin1").includes(ORDER.barcode), "barcode also printed as human-readable text");
 });
 
-test("renderSlip prints the order number before the first item line (top placement)", async () => {
+test("renderSlip prints the order number after the header and before the first item line", async () => {
   const buf = await renderSlip(ORDER);
   const text = buf.toString("latin1");
-  assert.ok(text.indexOf(ORDER.transaction_id.toString()) < text.indexOf("Club Mate 500ml"), "order number leads the slip");
+  const orderNumIndex = text.indexOf(ORDER.transaction_id.toString());
+  assert.ok(orderNumIndex > text.indexOf("POLYBIUS"), "order number comes after the vendor header");
+  assert.ok(orderNumIndex < text.indexOf("Club Mate 500ml"), "order number comes before the item list");
 });
 
 test("renderSlip prints £ using the printer's PC437 code point (0x9C), not raw Latin-1 (0xA3)", async () => {
