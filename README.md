@@ -15,7 +15,7 @@ customer the order ref to take to a human-operated till.
 
 ## Runtime Shape
 
-- A Node.js server serves the kiosk UI on localhost (runtime dependency: `@spacebar/shared` — see [Dependencies](#dependencies) below). Slip printing is complete — ESC/POS 1D (ITF) barcode via `src/slip.js`, including a working logo pipeline: `buildLogoBytes()` shells out to ImageMagick to rasterize `design/poly claw.bmp` into ESC/POS bytes, falling back to an empty buffer only if ImageMagick isn't available. **Outstanding before site:** a physical test print on the U220A to verify scale, columns, and ribbon colour.
+- A Node.js server serves the kiosk UI on localhost (runtime dependency: `@spacebar/shared` — see [Dependencies](#dependencies) below). Slip printing is complete — ESC/POS 1D (ITF) barcode via `src/slip.js`, including a working logo pipeline: `buildLogoBytes()` shells out to ImageMagick to rasterize `public/images/poly claw.bmp` into ESC/POS bytes, falling back to an empty buffer only if ImageMagick isn't available. **Outstanding before site:** a physical test print on the U220A to verify scale, columns, and ribbon colour.
 - The browser never sees the tillweb bearer token; the local server proxies API
   calls to tillweb.
 - Slips print through CUPS using `lp` by default.
@@ -43,7 +43,9 @@ Then open `http://127.0.0.1:8080`.
 
 ## Raspberry Pi Install
 
-On Raspberry Pi OS with Node.js 20+, git, Chromium, CUPS, and a configured
+On Raspberry Pi OS with Node.js 20+, git, Chromium, CUPS, ImageMagick
+(`sudo apt install imagemagick` — required to rasterize the logo for slip
+printing; the logo silently doesn't print without it), and a configured
 printer. `ops/install-pi.sh` runs `npm install` on the Pi, and `@spacebar/shared`
 is a git dependency — the Pi needs internet access to GitHub during install.
 

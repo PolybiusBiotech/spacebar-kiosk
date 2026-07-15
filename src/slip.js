@@ -477,6 +477,10 @@ export async function renderSlip(order) {
     // status: bold only — no underline in target
     BOLD_ON, t(d.statusLine), BOLD_OFF,
     t(d.statusSub),
+    // Force black explicitly right before the bit image — on this printer,
+    // ESC * bit-image printing didn't pick up the COLOR_BLACK set earlier
+    // and printed in red regardless.
+    COLOR_BLACK,
     barcodeRaster,
     t(d.barcode),
     ...(d.createdAt ? [t(`Created: ${d.createdAt}`)] : []),
