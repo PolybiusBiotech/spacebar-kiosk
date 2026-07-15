@@ -25,7 +25,10 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 // a standalone deploy. Pre-thresholded 1-bit BMP (not the grayscale PNG used
 // for the HTML preview) — no on-the-fly dithering needed for print.
 const LOGO_SOURCE_IMAGE = resolve(__dir, "../public/images/poly claw.bmp");
-const LOGO_WIDTH_PX = 80;
+// Doubled from 80: escStarBitImage() now prints at double density (twice
+// the horizontal dot resolution), so the same dot-column count is half
+// the physical width — this restores the logo's original proportions.
+const LOGO_WIDTH_PX = 160;
 
 function buildLogoDataUrl() {
   try {
@@ -189,20 +192,19 @@ function itemLine(item) {
 const LINE_SPACING_16    = Buffer.from([ESC, 0x33, 16]); // ESC 3 16
 const LINE_SPACING_RESET = Buffer.from([ESC, 0x32]);     // ESC 2 — revert to default
 
-// This printer garbled a single ESC * command past ~192 dots (54mm at
-// ~90dpi), and chunking into multiple commands per band made it worse
-// (broken line spacing) rather than better. Per Stephen Early (who has
-// hands-on ESC/POS dot-matrix experience): this printer defaults to
+// This printer garbled a single ESC * command past ~192 dots at single
+// density (m=0), and chunking into multiple commands per band made it
+// worse (broken line spacing) rather than better. Per Stephen Early (who
+// has hands-on ESC/POS dot-matrix experience): this printer defaults to
 // bidirectional printing (alternating scan direction each line for speed)
 // and single-density mode moves the print head faster than its
-// controller can keep up with for bit-image data — both plausible causes
-// of exactly what we saw, rather than a hard fixed-width buffer limit.
-// UNIDIRECTIONAL_ON (always left-to-right, returning before the next
-// line) and double-density mode (m=1, half the head speed) address both.
-// Module widths (ITF_NARROW_PX/ITF_WIDE_PX) are deliberately left
-// unchanged from the previous (narrower) attempt for this test round, to
-// isolate whether density/direction alone fixes the garbling before
-// touching bar width again.
+// controller can keep up with for bit-image data — both better
+// explanations than a hard fixed-width buffer limit, and confirmed by a
+// real print: UNIDIRECTIONAL_ON + double-density mode (m=1, half the head
+// speed) printed the barcode cleanly with no garbling, at a full width
+// that would previously have corrupted. Module widths (ITF_NARROW_PX/
+// ITF_WIDE_PX, LOGO_WIDTH_PX) are doubled from that test to compensate
+// for double density's 2x horizontal resolution.
 const ESC_STAR_MAX_WIDTH_PX = 400; // loose sanity bound, not a tuned hardware limit
 
 // `raster` is row-major, 1 bit per pixel, MSB-first, `bytesPerRow` bytes
@@ -298,12 +300,12 @@ const ITF_DIGIT_WIDTHS = [
   [0, 1, 0, 1, 0], // 9
 ];
 
-// Narrower than ideal for a 9-pin dot matrix printer (fine bars are more
-// prone to ink bleed) — forced this small by ESC_STAR_MAX_WIDTH_PX, the
-// printer's per-line column limit. A wider, more bleed-resistant module
-// (e.g. narrow=3/wide=8) is preferable if that constraint is ever lifted.
-const ITF_NARROW_PX = 1;
-const ITF_WIDE_PX   = 3; // ratio 3.0 — max of the ITF-spec 2.25-3.0 range, for contrast
+// escStarBitImage() prints at double density (twice the horizontal dot
+// resolution), so these dot counts are half the physical bar width —
+// narrow=3/wide=8 here is the original bleed-resistant design intent,
+// same physical size as narrow=1.5/wide=4 would be at single density.
+const ITF_NARROW_PX = 3;
+const ITF_WIDE_PX   = 8; // ratio 2.67, within the ITF-spec 2.25-3.0 range
 const ITF_QUIET_PX  = ITF_NARROW_PX * 10; // ITF spec: quiet zone >= 10x the narrow bar width
 const ITF_HEIGHT_PX = 70;
 
