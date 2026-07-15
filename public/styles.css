@@ -719,6 +719,13 @@ body.a11y-mode .btn-primary {
   align-content: start;
   scrollbar-width: thin;
   scrollbar-color: #0a3010 transparent;
+  /* Without these, touch-panning over card content didn't scroll at all on
+     this Pi's Chromium build (only dragging the scrollbar thumb worked) —
+     -webkit-overflow-scrolling enables momentum touch-scroll on older/
+     embedded WebKit-derived engines; touch-action is set explicitly here
+     rather than relying on inheritance from body, which wasn't enough. */
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
 }
 
 .products::-webkit-scrollbar { width: 4px; }
