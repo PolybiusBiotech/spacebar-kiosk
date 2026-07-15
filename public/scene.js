@@ -194,6 +194,13 @@ function buildModel(type, colorStr, color2Str) {
 
 // ── Setup ─────────────────────────────────────────────────────────────────--
 
+// Call before initScene()/startScene() ever run to permanently skip WebGL
+// (e.g. KIOSK_USE_STOCK_IMAGES on weak-GPU Pis) — every entry point below
+// already short-circuits on `failed`.
+export function disableScene() {
+  failed = true;
+}
+
 export function initScene() {
   if (renderer || failed) return;
   try {

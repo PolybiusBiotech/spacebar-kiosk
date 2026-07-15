@@ -1,4 +1,4 @@
-import { initScene, startScene, stopScene, setExtraSlots, clearExtraSlots, rescanCards } from "/scene.js";
+import { initScene, disableScene, startScene, stopScene, setExtraSlots, clearExtraSlots, rescanCards } from "/scene.js";
 
 const app = document.querySelector("#app");
 
@@ -543,11 +543,14 @@ function renderTabs(categories) {
 
 function renderProduct(product) {
   const meta = state.productMeta[product.stockline_id] || {};
-  const hasImg = !!meta.image;
+  // products.json can force a specific image per item; otherwise, when
+  // KIOSK_USE_STOCK_IMAGES is on, fall back to the till's own stocktype logo.
+  const imageUrl = meta.image || (state.config?.use_stock_images ? product.image : null) || null;
+  const hasImg = !!imageUrl;
   // With a real image, show it; otherwise show a bobbing low-poly 3D model.
   const { color, color2 } = resolveColors(product, meta);
   const visualHtml = hasImg
-    ? `<div class="product-img"><img src="${escapeHtml(meta.image)}" alt="" loading="lazy"></div>`
+    ? `<div class="product-img"><img src="${escapeHtml(imageUrl)}" alt="" loading="lazy"></div>`
     : `<div class="product-3d" data-key="${escapeHtml(String(product.stockline_id))}" data-model="${escapeHtml(resolveModel(product, meta, productCategory(product)))}" data-color="${escapeHtml(color)}"${color2 ? ` data-color2="${escapeHtml(color2)}"` : ''}></div>`;
   const key = productKey(product.stockline_id);
   const qty = state.basket.get(key) || 0;
@@ -916,7 +919,9 @@ async function boot() {
     await loadConfig();
     await loadProductMeta();
   } catch { /* non-fatal — show sleep screen, retry on first wake */ }
-  initScene();
+  // Skip WebGL entirely in image mode — no point spinning up a context
+  // that will never draw anything (also spares weak GPUs, e.g. Pi 3).
+  if (state.config?.use_stock_images) disableScene(); else initScene();
   render();
   loadStock({ quiet: true });
   setInterval(() => loadStock({ quiet: true }), 60_000);

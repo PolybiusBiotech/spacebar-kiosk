@@ -61,9 +61,8 @@ test("renderSlip includes Polybius lore header", async () => {
 test("renderSlip prints order.barcode verbatim as an ITF (1D) barcode", async () => {
   const buf = await renderSlip(ORDER);
   const itfCommand = Buffer.concat([
-    Buffer.from([0x1D, 0x6B, 0x05]), // GS k 5 — ITF barcode
+    Buffer.from([0x1D, 0x6B, 70, ORDER.barcode.length]), // GS k 70 n — ITF, new (explicit-length) format
     Buffer.from(ORDER.barcode, "ascii"),
-    Buffer.from([0x00]),
   ]);
   assert.ok(buf.includes(itfCommand), "ITF barcode command encodes order.barcode verbatim");
   assert.ok(buf.toString("latin1").includes(ORDER.barcode), "barcode also printed as human-readable text");

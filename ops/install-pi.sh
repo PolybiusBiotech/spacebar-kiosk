@@ -16,13 +16,16 @@ rsync -a --delete \
   --exclude .env \
   ./ "$APP_DIR"/
 
+(cd "$APP_DIR" && npm install --omit=dev)
+chown -R "$APP_USER":"$APP_USER" "$APP_DIR/node_modules"
+
 if [[ ! -f /etc/spacebar-kiosk.env ]]; then
   install -m 600 -o root -g root "$APP_DIR/.env.example" /etc/spacebar-kiosk.env
   echo "Created /etc/spacebar-kiosk.env. Edit it before starting the kiosk."
 fi
 
-install -m 644 "$APP_DIR/ops/spacebar-kiosk.service" /etc/systemd/system/spacebar-kiosk.service
-install -m 644 "$APP_DIR/ops/spacebar-kiosk-browser.service" /etc/systemd/system/spacebar-kiosk-browser.service
+sed "s/__APP_USER__/$APP_USER/g" "$APP_DIR/ops/spacebar-kiosk.service" | install -m 644 /dev/stdin /etc/systemd/system/spacebar-kiosk.service
+sed "s/__APP_USER__/$APP_USER/g" "$APP_DIR/ops/spacebar-kiosk-browser.service" | install -m 644 /dev/stdin /etc/systemd/system/spacebar-kiosk-browser.service
 
 systemctl daemon-reload
 systemctl enable spacebar-kiosk.service spacebar-kiosk-browser.service

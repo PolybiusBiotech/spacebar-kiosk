@@ -272,6 +272,7 @@ export function createServer(config, { getStock: getStockOverride = null } = {})
           location: config.location,
           print_enabled: config.printEnabled,
           mock_mode: config.mockMode,
+          use_stock_images: config.useStockImages,
           ready: missing.length === 0,
           missing
         });

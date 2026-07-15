@@ -10,8 +10,8 @@ EnvironmentFile=/etc/spacebar-kiosk.env
 ExecStart=/usr/bin/node /opt/spacebar-kiosk/src/server.js
 Restart=always
 RestartSec=5
-User=pi
-Group=pi
+User=__APP_USER__
+Group=__APP_USER__
 
 [Install]
 WantedBy=multi-user.target

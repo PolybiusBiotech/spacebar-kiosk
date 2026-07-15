@@ -43,22 +43,12 @@ Then open `http://127.0.0.1:8080`.
 
 ## Raspberry Pi Install
 
-On Raspberry Pi OS with Node.js 20+, git, Chromium, CUPS, and a configured
-printer. `ops/install-pi.sh` runs `npm install` on the Pi, and `@spacebar/shared`
-is a git dependency — the Pi needs internet access to GitHub during install.
+On Raspberry Pi OS with Node.js 20+, Chromium, CUPS, and a configured printer:
 
 ```sh
 sudo ./ops/install-pi.sh
 sudoedit /etc/spacebar-kiosk.env
 sudo systemctl restart spacebar-kiosk.service spacebar-kiosk-browser.service
-```
-
-The systemd units run as `APP_USER`, which defaults to `pi`. If the Pi's login
-account is something else (e.g. `emf`), set it explicitly so the install
-matches the account actually running the desktop session:
-
-```sh
-sudo APP_USER=emf ./ops/install-pi.sh
 ```
 
 Required settings:
@@ -73,10 +63,6 @@ Useful optional settings:
 - `KIOSK_PRINTER_NAME`: CUPS printer name. Blank uses the default printer.
 - `KIOSK_PRINT_COMMAND`: `lp` or `lpr`.
 - `KIOSK_PORT`: local HTTP port, default `8080`.
-- `KIOSK_USE_STOCK_IMAGES`: show each product's real tillweb stocktype logo
-  instead of the bobbing 3D model, and skip creating a WebGL context
-  entirely. Use this on weak-GPU Pis (e.g. Pi 3). Products without a logo
-  set in tillweb just show a plain empty card.
 
 Remote operations — required if the kiosk is unattended:
 

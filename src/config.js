@@ -60,6 +60,7 @@ export function loadConfig() {
     listenHost: process.env.KIOSK_LISTEN_HOST ?? "127.0.0.1",
     port: intEnv("KIOSK_PORT", 8080),
     mockMode: boolEnv("KIOSK_MOCK_MODE", false),
+    useStockImages: boolEnv("KIOSK_USE_STOCK_IMAGES", false),
     dummyPrint: boolEnv("KIOSK_DUMMY_PRINT", false),
     printEnabled: boolEnv("KIOSK_PRINT_ENABLED", true),
     printerName: process.env.KIOSK_PRINTER_NAME ?? "",

@@ -19,7 +19,7 @@ function stripHtml(html) {
   return html ? html.replace(/<[^>]*>/g, "").trim() : "";
 }
 
-export function stocklineToProduct(stockline) {
+export function stocklineToProduct(stockline, tillwebBaseUrl = "") {
   const stocktype = stockline.stocktype;
   if (!stocktype || stockline.linetype !== "continuous") {
     return null;
@@ -37,6 +37,7 @@ export function stocklineToProduct(stockline) {
     : null;
 
   const name = [stocktype.manufacturer, stocktype.name].filter(Boolean).join(" ").trim() || stockline.name;
+  const image = stocktype.logo ? `${tillwebBaseUrl}${stocktype.logo}` : null;
 
   return {
     stockline_id: stockline.id,
@@ -44,6 +45,7 @@ export function stocklineToProduct(stockline) {
     location: stockline.location,
     line_type: stockline.linetype,
     category,
+    image,
     stocktype: {
       id: stocktype.id,
       manufacturer: stocktype.manufacturer,
@@ -79,7 +81,7 @@ export async function fetchStock(config) {
     location: config.location,
     expired_orders: [],
     items: (stock.stocklines ?? [])
-      .map(stocklineToProduct)
+      .map(stockline => stocklineToProduct(stockline, config.tillwebBaseUrl))
       .filter(Boolean)
   };
 }

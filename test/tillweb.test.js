@@ -36,6 +36,20 @@ test("stocklineToProduct converts a well-formed continuous stockline", () => {
   assert.equal(product.category, "Soft Drinks");
 });
 
+test("stocklineToProduct returns null image when stocktype has no logo", () => {
+  const product = stocklineToProduct(BASE_STOCKLINE, "https://till.example.org");
+  assert.equal(product.image, null);
+});
+
+test("stocklineToProduct resolves logo to an absolute URL against tillwebBaseUrl", () => {
+  const withLogo = {
+    ...BASE_STOCKLINE,
+    stocktype: { ...BASE_STOCKTYPE, logo: "/media/emf/product-logos/abc123.png" }
+  };
+  const product = stocklineToProduct(withLogo, "https://till.example.org");
+  assert.equal(product.image, "https://till.example.org/media/emf/product-logos/abc123.png");
+});
+
 test("stocklineToProduct prefers manufacturer + stocktype name over the stockline label", () => {
   // Bar staff often type inconsistent casing/shorthand into the stockline
   // label (e.g. "Buzzballz Chilli Mango"); stocktype.manufacturer/name carry

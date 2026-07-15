@@ -3,6 +3,12 @@
 // Barcodes are printed as 1D (ITF) only — QR was dropped because the dot
 // matrix printer's ink bleed makes QR codes unreliable to scan, and the
 // till's barcode scanners can't read QR at all.
+//
+// GS k uses the "new" explicit-length-byte encoding (function type >= 65,
+// no NUL terminator) rather than the legacy NUL-terminated form (m 0-6) —
+// some ESC/POS-compatible firmware (this U220A included) doesn't implement
+// the legacy form and prints the raw command/data bytes as garbled text
+// instead of a barcode.
 
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -24,7 +30,7 @@ function buildLogoDataUrl() {
 
 const LOGO_DATA_URL = buildLogoDataUrl();
 
-const COLS      = 42; // characters per line at standard density on 76mm paper
+const COLS      = 33; // characters per line at standard density on 76mm paper
 const PRICE_COL =  7; // fixed price column width — right-aligned, fits up to £999.99
 
 const ESC = 0x1B;
@@ -168,13 +174,13 @@ const LOGO_ESC_POS = buildLogoBytes();
 // prints it.
 
 function barcode1dBytes(code) {
+  const data = Buffer.from(code, "ascii");
   return Buffer.concat([
-    Buffer.from([GS, 0x68, 80]),  // GS h 80 — barcode height 80 dots
-    Buffer.from([GS, 0x77, 3]),   // GS w 3 — module width 3
-    Buffer.from([GS, 0x48, 0]),   // GS H 0 — no HRI (printed as text below)
-    Buffer.from([GS, 0x6B, 5]),   // GS k 5 — ITF barcode
-    Buffer.from(code, "ascii"),
-    Buffer.from([0x00]),          // NUL terminator
+    Buffer.from([GS, 0x68, 80]),               // GS h 80 — barcode height 80 dots
+    Buffer.from([GS, 0x77, 3]),                // GS w 3 — module width 3
+    Buffer.from([GS, 0x48, 0]),                // GS H 0 — no HRI (printed as text below)
+    Buffer.from([GS, 0x6B, 70, data.length]),  // GS k 70 n — ITF, new format (explicit length)
+    data,
   ]);
 }
 

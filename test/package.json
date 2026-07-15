@@ -1,0 +1,22 @@
+{
+  "name": "spacebar-kiosk",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Raspberry Pi touchscreen kiosk for creating unpaid tillweb drink orders.",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "check": "node --check src/server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@spacebar/shared": "git+https://github.com/PolybiusBiotech/spacebar-shared.git"
+  },
+  "license": "GPL-3.0-or-later",
+  "devDependencies": {
+    "puppeteer": "^25.1.0"
+  }
+}
