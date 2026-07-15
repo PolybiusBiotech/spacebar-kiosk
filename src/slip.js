@@ -25,10 +25,14 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 // a standalone deploy. Pre-thresholded 1-bit BMP (not the grayscale PNG used
 // for the HTML preview) — no on-the-fly dithering needed for print.
 const LOGO_SOURCE_IMAGE = resolve(__dir, "../public/images/poly claw.bmp");
-// Doubled from 80: escStarBitImage() now prints at double density (twice
-// the horizontal dot resolution), so the same dot-column count is half
-// the physical width — this restores the logo's original proportions.
+// escStarBitImage() prints at double density (twice the horizontal dot
+// resolution only — vertical/row count is unaffected). So width needs to
+// double to compensate (160, not the original single-density 80), but
+// height must NOT scale with it — 96 is what a proportional resize to
+// width=80 would have produced. A plain proportional `-resize 160x` was
+// tried and doubled the height too, printing a stretched/elongated logo.
 const LOGO_WIDTH_PX = 160;
+const LOGO_HEIGHT_PX = 96;
 
 function buildLogoDataUrl() {
   try {
@@ -247,7 +251,7 @@ function buildLogoBytes() {
   try {
     const result = spawnSync("magick", [
       LOGO_SOURCE_IMAGE,
-      "-resize", `${LOGO_WIDTH_PX}x`,
+      "-resize", `${LOGO_WIDTH_PX}x${LOGO_HEIGHT_PX}!`, // ! forces exact dims, ignoring aspect ratio
       "-depth", "1",
       "pbm:-",
     ], { maxBuffer: 4 * 1024 * 1024 });
