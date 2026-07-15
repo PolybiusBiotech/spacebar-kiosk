@@ -187,7 +187,11 @@ async function dummyPrintSlip(config, order, slipData) {
 export async function printOrderSlip(config, order) {
   const slipData = await renderSlip(order);
 
-  if (config.dummyPrint || (config.mockMode && config.printEnabled)) {
+  // dummyPrint (not mockMode) is the sole control over whether printing is
+  // diverted to disk instead of CUPS — mock till data and a real physical
+  // printer aren't mutually exclusive, e.g. testing slip layout/hardware
+  // without a live tillweb connection.
+  if (config.dummyPrint) {
     await dummyPrintSlip(config, order, slipData);
     return { printed: true, skipped: false, dummy: true, bytes: slipData.length };
   }
