@@ -250,7 +250,7 @@ const ITF_DIGIT_WIDTHS = [
 
 const ITF_NARROW_PX = 3; // chunky, printer-friendly modules — this is a
 const ITF_WIDE_PX   = 8; // 9-pin dot matrix, fine 1px bars bleed together
-const ITF_QUIET_PX  = 12; // quiet-zone margin either side, aids scanning
+const ITF_QUIET_PX  = ITF_NARROW_PX * 10; // ITF spec: quiet zone >= 10x the narrow bar width
 const ITF_HEIGHT_PX = 70;
 
 // Returns [{ bar: bool, width: px }, ...] left-to-right for a barcode
