@@ -960,6 +960,36 @@ boot();
   }, true);
 })();
 
+// ── Product grid drag-to-scroll ─────────────────────────────────────────────
+// Native touch-pan scrolling isn't reliably engaging overflow-y:auto on this
+// Pi's Chromium build — only dragging the scrollbar thumb directly worked.
+// Same fix as the tab bar above: take manual control of scrollTop via
+// pointer events instead of relying on native touch-scroll gesture
+// recognition. moved+stopPropagation prevents a drag that starts/ends over
+// an add/inc/dec button from also registering as a tap.
+(function () {
+  let dragEl = null, startY = 0, startScroll = 0, moved = false;
+  document.addEventListener('pointerdown', e => {
+    const el = e.target.closest('.products');
+    if (!el) return;
+    dragEl = el;
+    startY = e.clientY;
+    startScroll = el.scrollTop;
+    moved = false;
+  });
+  document.addEventListener('pointermove', e => {
+    if (!dragEl) return;
+    const dy = e.clientY - startY;
+    if (Math.abs(dy) > 4) moved = true;
+    dragEl.scrollTop = startScroll - dy;
+  });
+  document.addEventListener('pointerup', e => {
+    if (!dragEl) return;
+    if (moved) e.stopPropagation();
+    dragEl = null;
+  }, true);
+})();
+
 // ── Maintenance mode ──────────────────────────────────────────────────────────
 const maintenanceOverlay = document.getElementById("maintenance-overlay");
 let maintenanceReconnectDelay = 3000;
