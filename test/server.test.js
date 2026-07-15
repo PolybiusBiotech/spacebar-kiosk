@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { Readable } from "node:stream";
-import test from "node:test";
+import test, { mock } from "node:test";
 
-import { createServer } from "../src/server.js";
+import { createServer, updatePrinterState } from "../src/server.js";
 
 const PUBLIC_DIR = new URL("../public", import.meta.url).pathname;
 
@@ -256,4 +256,47 @@ test("returns 405 for POST to an unrecognised path", async () => {
   const server = createServer(MOCK_CONFIG);
   const res = await request(server, { method: "POST", url: "/not-an-api-route" });
   assert.equal(res.statusCode, 405);
+});
+
+// ── Printer state logging ───────────────────────────────────────────────────
+// Previously a printer failure only updated in-memory state — nothing
+// showed up in the journal, so there was no way to tell a failure had
+// happened without a client actively polling for it. updatePrinterState
+// mutates module-level singleton state shared across this whole test file,
+// so establish a known baseline before each assertion rather than assuming
+// a pristine starting state.
+
+test("updatePrinterState logs once when the printer transitions to failed", () => {
+  updatePrinterState({ ok: true, status: "idle", message: "baseline" });
+  const errorMock = mock.method(console, "error", () => {});
+  try {
+    updatePrinterState({ ok: false, status: "offline", message: "Printer is offline." });
+    assert.equal(errorMock.mock.callCount(), 1);
+    assert.match(errorMock.mock.calls[0].arguments[0], /FAILED.*offline.*Printer is offline\./s);
+  } finally {
+    errorMock.mock.restore();
+  }
+});
+
+test("updatePrinterState does not re-log on repeated failures (no polling spam)", () => {
+  updatePrinterState({ ok: false, status: "offline", message: "still offline" });
+  const errorMock = mock.method(console, "error", () => {});
+  try {
+    updatePrinterState({ ok: false, status: "offline", message: "still offline" });
+    assert.equal(errorMock.mock.callCount(), 0);
+  } finally {
+    errorMock.mock.restore();
+  }
+});
+
+test("updatePrinterState logs recovery when the printer comes back", () => {
+  updatePrinterState({ ok: false, status: "offline", message: "baseline" });
+  const logMock = mock.method(console, "log", () => {});
+  try {
+    updatePrinterState({ ok: true, status: "idle", message: "Print succeeded." }, true);
+    assert.equal(logMock.mock.callCount(), 1);
+    assert.match(logMock.mock.calls[0].arguments[0], /recovered/);
+  } finally {
+    logMock.mock.restore();
+  }
 });

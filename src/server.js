@@ -148,13 +148,23 @@ const printerState = {
   lastPrintedAt: null
 };
 
-function updatePrinterState(result, printed = false) {
+export function updatePrinterState(result, printed = false) {
+  const wasOk = printerState.ok;
   printerState.ok = result.ok ?? true;
   printerState.status = result.status ?? (printed ? "idle" : "unknown");
   printerState.message = result.message ?? "";
   printerState.lastCheckedAt = new Date().toISOString();
   if (!printerState.ok) printerState.lastErrorAt = printerState.lastCheckedAt;
   if (printed) printerState.lastPrintedAt = printerState.lastCheckedAt;
+
+  // Log on transitions only (not every healthz poll), so a printer going
+  // offline between orders — e.g. paper runs out while idle — shows up in
+  // the journal without waiting for the next customer's order to fail.
+  if (wasOk && !printerState.ok) {
+    console.error(`[printer] status changed to FAILED (${printerState.status}): ${printerState.message}`);
+  } else if (wasOk === false && printerState.ok) {
+    console.log(`[printer] recovered (${printerState.status})`);
+  }
 }
 
 // ── Maintenance mode ────────────────────────────────────────────────────────
@@ -317,9 +327,11 @@ export function createServer(config, { getStock: getStockOverride = null } = {})
         try {
           const printResult = await printOrderSlip(config, order);
           updatePrinterState({ ok: true, status: "idle", message: "Print succeeded." }, true);
+          console.log(`[print] order ${order.transaction_id} printed OK (${printResult.bytes} bytes${printResult.dummy ? ", dummy" : ""})`);
           sendJson(res, 200, { ...order, print: printResult });
         } catch (error) {
           updatePrinterState({ ok: false, status: "error", message: error.message });
+          console.error(`[print] order ${order.transaction_id} FAILED: ${error.message}`);
           notifyOmsOfPrinterError(config, error.message);
           sendJson(res, 502, {
             ...order,
