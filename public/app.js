@@ -703,7 +703,7 @@ function renderPrinterError(payload) {
   app.innerHTML = `
     <div class="status-screen">
       <h1>Transmit Error</h1>
-      <p>Order queued but receipt printer failed. Tell bar staff your reference.</p>
+      <p>This kiosk's printer isn't working. Please try another kiosk.</p>
       ${payload?.transaction_id != null ? `<div class="order-number">${escapeHtml(String(payload.transaction_id))}</div>` : ''}
       <button class="btn-primary" data-retry>Acknowledged</button>
     </div>
@@ -992,9 +992,13 @@ boot();
 
 // ── Maintenance mode ──────────────────────────────────────────────────────────
 const maintenanceOverlay = document.getElementById("maintenance-overlay");
+const printerLockoutClearBtn = document.getElementById("printer-lockout-clear");
 let maintenanceReconnectDelay = 3000;
 let maintenanceGlitchTimer = null;
 let maintenanceCountdownInterval = null;
+let currentPrinterLockout = false;
+let staffTapCount = 0;
+let staffTapTimer = null;
 
 function maintenanceCountdownText(reopeningAt) {
   const [hh, mm] = reopeningAt.split(":").map(Number);
@@ -1046,8 +1050,11 @@ function connectKioskEvents() {
   const es = new EventSource("/api/events");
   es.addEventListener("maintenance", e => {
     try {
-      const { active, reopeningAt } = JSON.parse(e.data);
+      const { active, reopeningAt, printerLockout } = JSON.parse(e.data);
       maintenanceOverlay.hidden = !active;
+      currentPrinterLockout = Boolean(printerLockout);
+      staffTapCount = 0;
+      printerLockoutClearBtn.hidden = true;
       const reopenEl = document.getElementById("maintenance-reopen");
       if (reopenEl) reopenEl.hidden = !active || !reopeningAt;
       if (active && reopeningAt) startMaintenanceCountdown(reopeningAt);
@@ -1063,3 +1070,30 @@ function connectKioskEvents() {
   };
 }
 connectKioskEvents();
+
+// Hidden staff control: tap "TERMINAL OFFLINE" 5x within 3s to reveal a
+// button that clears a print-failure lockout — only does anything when the
+// current closure was auto-triggered by this kiosk's own printer (not a
+// genuine OMS-driven closure, which a single kiosk shouldn't be able to
+// override).
+document.addEventListener("click", e => {
+  if (!e.target.closest(".maintenance-title") || !currentPrinterLockout) return;
+  staffTapCount++;
+  clearTimeout(staffTapTimer);
+  staffTapTimer = setTimeout(() => { staffTapCount = 0; }, 3_000);
+  if (staffTapCount >= 5) {
+    staffTapCount = 0;
+    printerLockoutClearBtn.hidden = false;
+  }
+});
+
+printerLockoutClearBtn.addEventListener("click", async () => {
+  printerLockoutClearBtn.disabled = true;
+  try {
+    await jsonFetch("/api/printer-lockout/clear", { method: "POST" });
+  } catch {
+    // SSE will still reflect server state on next event; just let staff retry the tap gesture
+  } finally {
+    printerLockoutClearBtn.disabled = false;
+  }
+});

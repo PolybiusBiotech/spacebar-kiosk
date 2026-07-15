@@ -50,6 +50,26 @@ function request(server, { method = "GET", url = "/", body = null } = {}) {
   });
 }
 
+// For streaming endpoints (/api/events) that never call res.end() — the
+// route handler writes its initial payload synchronously before returning,
+// so this reads whatever's been written without waiting for a close.
+function requestStream(server, { method = "GET", url = "/" } = {}) {
+  const req = Readable.from([]);
+  req.method = method;
+  req.url = url;
+  req.headers = { host: "127.0.0.1" };
+  const res = {
+    statusCode: 200,
+    headers: {},
+    body: "",
+    writeHead(statusCode, headers = {}) { this.statusCode = statusCode; this.headers = { ...this.headers, ...headers }; },
+    write(chunk) { this.body += chunk; },
+    end(chunk = "") { this.body += chunk; }
+  };
+  server.emit("request", req, res);
+  return res;
+}
+
 // ── /api/config ────────────────────────────────────────────────────────────
 
 test("config endpoint reports missing required tillweb settings", async () => {
@@ -213,6 +233,75 @@ test("orders endpoint rejects non-integer stockline_id", async () => {
     body: JSON.stringify({ items: [{ stockline_id: "abc", qty: 1 }] })
   });
   assert.equal(res.statusCode, 400);
+});
+
+// ── Maintenance mode ─────────────────────────────────────────────────────────
+
+test("mock mode still reflects maintenance state via /api/events (not gated on mockMode)", async () => {
+  const server = createServer(MOCK_CONFIG);
+  try {
+    // /api/maintenance sets the same maintenanceMode variable connectOmsMaintenance()
+    // would on a real OMS signal — this proves mock mode doesn't block/ignore it.
+    await request(server, { method: "POST", url: "/api/maintenance", body: JSON.stringify({ active: true }) });
+    const res = requestStream(server, { url: "/api/events" });
+    assert.equal(res.statusCode, 200);
+    assert.match(res.body, /"active":true/);
+  } finally {
+    await request(server, { method: "POST", url: "/api/maintenance", body: JSON.stringify({ active: false }) });
+  }
+});
+
+// ── Printer lockout ──────────────────────────────────────────────────────────
+// Auto-triggered on a print failure, cleared only via the hidden staff
+// control (POST /api/printer-lockout/clear) — see app.js's tap gesture.
+// A nonexistent printerName makes the print attempt fail deterministically
+// (checkPrinterStatus rejects before ever touching a real printer), same
+// technique as test/printer.test.js.
+
+const PRINT_FAILURE_CONFIG = {
+  ...MOCK_CONFIG,
+  printEnabled: true,
+  dummyPrint: false,
+  printerName: "definitely-not-a-real-printer-xyz",
+  printCommand: "lp"
+};
+const ORDER_BODY = JSON.stringify({ items: [{ stockline_id: 101, qty: 1 }] });
+
+test("print failure engages the lockout once, and does not re-log on repeated failures", async () => {
+  const server = createServer(PRINT_FAILURE_CONFIG);
+  const errorMock = mock.method(console, "error", () => {});
+  try {
+    const res1 = await request(server, { method: "POST", url: "/api/orders", body: ORDER_BODY });
+    assert.equal(res1.statusCode, 502);
+    const engaged = () => errorMock.mock.calls.filter(c => c.arguments[0]?.includes("[printer-lockout] engaged")).length;
+    assert.equal(engaged(), 1, "lockout engages on first failure");
+
+    const res2 = await request(server, { method: "POST", url: "/api/orders", body: ORDER_BODY });
+    assert.equal(res2.statusCode, 502);
+    assert.equal(engaged(), 1, "does not re-engage/re-log while already locked out");
+  } finally {
+    errorMock.mock.restore();
+    await request(server, { method: "POST", url: "/api/printer-lockout/clear" }); // don't leak state into other tests
+  }
+});
+
+test("POST /api/printer-lockout/clear resets the lockout so a later failure re-engages it", async () => {
+  const server = createServer(PRINT_FAILURE_CONFIG);
+  await request(server, { method: "POST", url: "/api/orders", body: ORDER_BODY }); // engage lockout
+
+  const clearRes = await request(server, { method: "POST", url: "/api/printer-lockout/clear" });
+  assert.equal(clearRes.statusCode, 200);
+  assert.deepEqual(JSON.parse(clearRes.body), { ok: true });
+
+  const errorMock = mock.method(console, "error", () => {});
+  try {
+    await request(server, { method: "POST", url: "/api/orders", body: ORDER_BODY });
+    const engaged = errorMock.mock.calls.filter(c => c.arguments[0]?.includes("[printer-lockout] engaged")).length;
+    assert.equal(engaged, 1, "lockout re-engages after being cleared");
+  } finally {
+    errorMock.mock.restore();
+    await request(server, { method: "POST", url: "/api/printer-lockout/clear" }); // don't leak state into other tests
+  }
 });
 
 test("orders endpoint returns 503 when not configured and not in mock mode", async () => {

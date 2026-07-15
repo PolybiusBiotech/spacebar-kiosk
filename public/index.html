@@ -23,6 +23,10 @@
       <p class="maintenance-title">TERMINAL OFFLINE</p>
       <p class="maintenance-sub">FACILITY CLOSED — STAND BY</p>
       <p id="maintenance-reopen" class="maintenance-reopen" hidden></p>
+      <!-- Hidden staff control: tap "TERMINAL OFFLINE" 5x within 3s to reveal,
+           only when this closure was auto-triggered by a print failure (not
+           a genuine OMS-driven closure). See app.js. -->
+      <button id="printer-lockout-clear" class="printer-lockout-clear" hidden>Staff: printer fixed, resume service</button>
     </div>
     <!-- CRT overlay: persistent scanlines + intermittent rolling band -->
     <div class="crt-overlay" id="crt-overlay" aria-hidden="true"></div>

@@ -169,17 +169,27 @@ export function updatePrinterState(result, printed = false) {
 
 // ── Maintenance mode ────────────────────────────────────────────────────────
 // maintenanceMode = OMS-wide (affects all screens), or local override
-// kioskOnlyMode   = kiosk-only (stops orders at kiosk/badge; OMS displays stay live)
+// kioskOnlyMode   = kiosk-only, OMS-driven (stops orders at kiosk/badge; OMS displays stay live)
+// printerLockoutMode = kiosk-only, locally auto-triggered on a print failure —
+// never touched by the OMS, only clearable via the hidden staff control on
+// this kiosk (see the maintenance overlay's tap gesture in app.js). Kept
+// separate from kioskOnlyMode so an OMS reconnect/resend can't silently
+// clear a lockout the OMS doesn't know about.
 let maintenanceMode = false;
 let maintenanceReopeningAt = "";
 let kioskOnlyMode = false;
 let kioskOnlyReopeningAt = "";
+let printerLockoutMode = false;
 const kioskEventClients = new Set();
 
+function maintenancePayload() {
+  const active = maintenanceMode || kioskOnlyMode || printerLockoutMode;
+  const reopeningAt = active && !printerLockoutMode ? (maintenanceMode ? maintenanceReopeningAt : kioskOnlyReopeningAt) : "";
+  return { active, reopeningAt, printerLockout: printerLockoutMode };
+}
+
 function broadcastKioskMaintenance() {
-  const active = maintenanceMode || kioskOnlyMode;
-  const reopeningAt = active ? (maintenanceMode ? maintenanceReopeningAt : kioskOnlyReopeningAt) : "";
-  const data = `event: maintenance\ndata: ${JSON.stringify({ active, reopeningAt })}\n\n`;
+  const data = `event: maintenance\ndata: ${JSON.stringify(maintenancePayload())}\n\n`;
   for (const res of kioskEventClients) {
     try { res.write(data); } catch { kioskEventClients.delete(res); }
   }
@@ -188,13 +198,20 @@ function broadcastKioskMaintenance() {
 function connectOmsMaintenance(config) {
   if (!config.omsUrl) return;
   let url;
-  try { url = new URL(`${config.omsUrl}/pay/events`); } catch { return; }
+  try {
+    url = new URL(`${config.omsUrl}/pay/events`);
+  } catch {
+    console.error(`[maintenance] KIOSK_OMS_URL "${config.omsUrl}" is not a valid URL — did you forget "http://"? Not retrying until restart.`);
+    return;
+  }
   const lib = url.protocol === "https:" ? https : http;
   const req = lib.get(url, res => {
     if (res.statusCode !== 200) {
+      console.error(`[maintenance] OMS returned ${res.statusCode} for ${url}, retrying in 10s`);
       res.resume();
       return setTimeout(() => connectOmsMaintenance(config), 10_000);
     }
+    console.log(`[maintenance] connected to OMS at ${url}`);
     res.setEncoding("utf8");
     let buf = "";
     let pendingEvent = null;
@@ -232,10 +249,19 @@ function connectOmsMaintenance(config) {
         }
       }
     });
-    res.on("end", () => setTimeout(() => connectOmsMaintenance(config), 5_000));
-    res.on("error", () => setTimeout(() => connectOmsMaintenance(config), 5_000));
+    res.on("end", () => {
+      console.error(`[maintenance] OMS connection at ${url} ended, reconnecting in 5s`);
+      setTimeout(() => connectOmsMaintenance(config), 5_000);
+    });
+    res.on("error", err => {
+      console.error(`[maintenance] OMS connection at ${url} errored (${err.message}), reconnecting in 5s`);
+      setTimeout(() => connectOmsMaintenance(config), 5_000);
+    });
   });
-  req.on("error", () => setTimeout(() => connectOmsMaintenance(config), 5_000));
+  req.on("error", err => {
+    console.error(`[maintenance] could not reach OMS at ${url} (${err.message}), retrying in 5s`);
+    setTimeout(() => connectOmsMaintenance(config), 5_000);
+  });
   req.setTimeout(0);
 }
 
@@ -247,7 +273,11 @@ function notifyOmsOfPrinterError(config, message) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ location: config.location, message, at: new Date().toISOString() })
-  }).catch(() => {});
+  }).then(res => {
+    if (!res.ok) console.error(`[printer-alert] OMS returned ${res.status} for ${config.omsUrl}/api/printer-alert`);
+  }).catch(err => {
+    console.error(`[printer-alert] could not reach OMS at ${config.omsUrl} (${err.message})`);
+  });
 }
 
 export function createServer(config, { getStock: getStockOverride = null } = {}) {
@@ -333,6 +363,11 @@ export function createServer(config, { getStock: getStockOverride = null } = {})
           updatePrinterState({ ok: false, status: "error", message: error.message });
           console.error(`[print] order ${order.transaction_id} FAILED: ${error.message}`);
           notifyOmsOfPrinterError(config, error.message);
+          if (!printerLockoutMode) {
+            printerLockoutMode = true;
+            broadcastKioskMaintenance();
+            console.error("[printer-lockout] engaged — kiosk taken offline until staff clears it locally");
+          }
           sendJson(res, 502, {
             ...order,
             error: "printer-error",
@@ -350,9 +385,7 @@ export function createServer(config, { getStock: getStockOverride = null } = {})
           "Connection": "keep-alive",
           "X-Accel-Buffering": "no"
         });
-        const effectiveActive = maintenanceMode || kioskOnlyMode;
-        const effectiveReopeningAt = effectiveActive ? (maintenanceMode ? maintenanceReopeningAt : kioskOnlyReopeningAt) : "";
-        res.write(`event: maintenance\ndata: ${JSON.stringify({ active: effectiveActive, reopeningAt: effectiveReopeningAt })}\n\n`);
+        res.write(`event: maintenance\ndata: ${JSON.stringify(maintenancePayload())}\n\n`);
         kioskEventClients.add(res);
         req.on("close", () => kioskEventClients.delete(res));
         return;
@@ -376,6 +409,17 @@ export function createServer(config, { getStock: getStockOverride = null } = {})
         broadcastKioskMaintenance();
         console.log(`[maintenance] local set: ${maintenanceMode ? "ON" : "OFF"}${maintenanceReopeningAt ? ` reopening ${maintenanceReopeningAt}` : ""}`);
         sendJson(res, 200, { ok: true, active: maintenanceMode, reopeningAt: maintenanceReopeningAt });
+        return;
+      }
+
+      // Clears the local printer-lockout only — triggered by the hidden
+      // staff control on this kiosk's offline screen (see app.js). Never
+      // touches maintenanceMode/kioskOnlyMode, which are OMS-driven.
+      if (requestUrl.pathname === "/api/printer-lockout/clear" && req.method === "POST") {
+        printerLockoutMode = false;
+        broadcastKioskMaintenance();
+        console.log("[printer-lockout] cleared by staff");
+        sendJson(res, 200, { ok: true });
         return;
       }
 
