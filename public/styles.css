@@ -762,6 +762,11 @@ body.a11y-mode .btn-primary {
   height: 100%;
   object-fit: cover;
   display: block;
+  /* Purely decorative — must never intercept touch, or a drag on the image
+     triggers Chromium's native image-drag instead of scrolling .products
+     (the same reason scene.js's 3D canvas overlay is pointer-events: none). */
+  pointer-events: none;
+  -webkit-user-drag: none;
 }
 
 /* Slot the 3D canvas draws the bobbing product model into (see scene.js).

@@ -550,7 +550,7 @@ function renderProduct(product) {
   // With a real image, show it; otherwise show a bobbing low-poly 3D model.
   const { color, color2 } = resolveColors(product, meta);
   const visualHtml = hasImg
-    ? `<div class="product-img"><img src="${escapeHtml(imageUrl)}" alt="" loading="lazy"></div>`
+    ? `<div class="product-img"><img src="${escapeHtml(imageUrl)}" alt="" loading="lazy" draggable="false"></div>`
     : `<div class="product-3d" data-key="${escapeHtml(String(product.stockline_id))}" data-model="${escapeHtml(resolveModel(product, meta, productCategory(product)))}" data-color="${escapeHtml(color)}"${color2 ? ` data-color2="${escapeHtml(color2)}"` : ''}></div>`;
   const key = productKey(product.stockline_id);
   const qty = state.basket.get(key) || 0;
