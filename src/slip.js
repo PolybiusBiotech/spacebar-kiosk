@@ -47,8 +47,8 @@ const GS  = 0x1D;
 const INIT         = Buffer.from([ESC, 0x40]);           // ESC @ — reset printer
 const ALIGN_LEFT   = Buffer.from([ESC, 0x61, 0x00]);
 const ALIGN_CENTER = Buffer.from([ESC, 0x61, 0x01]);
-const COLOR_RED    = Buffer.from([ESC, 0x72, 0x01]);
-const COLOR_BLACK  = Buffer.from([ESC, 0x72, 0x00]);
+const COLOUR_RED    = Buffer.from([ESC, 0x72, 0x01]);
+const COLOUR_BLACK  = Buffer.from([ESC, 0x72, 0x00]);
 const BOLD_ON       = Buffer.from([ESC, 0x45, 0x01]);
 const BOLD_OFF      = Buffer.from([ESC, 0x45, 0x00]);
 const DBLSTRIKE_ON  = Buffer.from([ESC, 0x47, 0x01]);
@@ -440,14 +440,14 @@ export async function renderSlip(order) {
     INIT,
     SELECT_CP437,
     ALIGN_CENTER,
-    COLOR_RED, LOGO_ESC_POS, COLOR_BLACK,
+    COLOUR_RED, LOGO_ESC_POS, COLOUR_BLACK,
     // vendor: Font B (condensed) to de-emphasise it — matches target's 0.6rem grey styling
     FONT_B, ...wrapWords(d.vendorLine, COLS).map(l => t(l)), FONT_A,
     // "space" is graffiti — normal size (SIZE_RESET), red, bold+italic, offset-left.
     // Both "space" and the official name use SIZE_RESET so the size difference is subtle —
     // matching the target's 0.9rem vs 0.95rem ratio. Bold differentiates the official name.
     ALIGN_LEFT, SIZE_RESET,
-    BOLD_ON, ITALIC_ON, COLOR_RED, t("  space"), COLOR_BLACK, ITALIC_OFF, BOLD_OFF,
+    BOLD_ON, ITALIC_ON, COLOUR_RED, t("  space"), COLOUR_BLACK, ITALIC_OFF, BOLD_OFF,
     // official name centred on its own line — SIZE_RESET + bold only (not double-height)
     // Keeps the name only marginally larger than the graffiti, matching the subtle scale
     // difference in the target.
@@ -469,18 +469,18 @@ export async function renderSlip(order) {
     // No separator before total — the target has no divider between items and total.
     // Bold + double-strike + red on the total row provides sufficient visual separation,
     // matching the target's border-top approach on the total-row.
-    BOLD_ON, DBLSTRIKE_ON, COLOR_RED,
+    BOLD_ON, DBLSTRIKE_ON, COLOUR_RED,
     encodeText(label + spaces + priceCol(d.total.slice(1))),
-    COLOR_BLACK, DBLSTRIKE_OFF, BOLD_OFF, SIZE_RESET,
+    COLOUR_BLACK, DBLSTRIKE_OFF, BOLD_OFF, SIZE_RESET,
     Buffer.from("\n", "ascii"),
     ALIGN_CENTER,
     // status: bold only — no underline in target
     BOLD_ON, t(d.statusLine), BOLD_OFF,
     t(d.statusSub),
     // Force black explicitly right before the bit image — on this printer,
-    // ESC * bit-image printing didn't pick up the COLOR_BLACK set earlier
+    // ESC * bit-image printing didn't pick up the COLOUR_BLACK set earlier
     // and printed in red regardless.
-    COLOR_BLACK,
+    COLOUR_BLACK,
     barcodeRaster,
     t(d.barcode),
     COLOUR_RED,
