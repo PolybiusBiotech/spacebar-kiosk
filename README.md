@@ -172,17 +172,23 @@ Stockline IDs come from the quicktill database (`stockline.id`).
 
 ## Maintenance mode
 
-A full-screen "TERMINAL OFFLINE" overlay can be shown on the kiosk to halt ordering. There are two independent kinds of maintenance state, both surfaced to the kiosk's browser UI as a single merged `maintenance` SSE event on `/api/events`:
+A full-screen "TERMINAL OFFLINE" overlay can be shown on the kiosk to halt ordering. There are three independent kinds of maintenance state, all surfaced to the kiosk's browser UI as a single merged `maintenance` SSE event on `/api/events`:
 
 - **Site-wide `maintenance`** — affects every screen (badge, kiosk, till, OMS). Pushed from the OMS when `KIOSK_OMS_URL` is set, or can be set directly on the kiosk with `POST /api/maintenance` below.
 - **Kiosk-only `kiosk-maintenance`** — halts ordering on the kiosk (and badge) while OMS staff/customer/pay screens stay live. This is pushed to the kiosk only as a `kiosk-maintenance` SSE event from the OMS; there is no kiosk-side endpoint to set it. It's set on the OMS itself (`POST /kiosk-maintenance` there — see the OMS README) and requires `KIOSK_OMS_URL` to reach the kiosk at all.
+- **Printer lockout** — auto-triggered locally when a print attempt fails (see [Printer failure handling](#printer-failure-handling) below). Never touched by the OMS, and only affects this one kiosk process — cleared only via the hidden staff control on the kiosk's own touchscreen.
 
-The kiosk merges the two: its own `/api/events` reports `active: true` if either the site-wide or kiosk-only flag is active.
+The kiosk merges all three: its own `/api/events` reports `active: true` if any of the three is active. Mock mode (`KIOSK_MOCK_MODE=true`) does not gate any of this — site-wide/kiosk-only maintenance still works exactly the same, since `connectOmsMaintenance()` only checks whether `KIOSK_OMS_URL` is set.
 
 | Endpoint | Notes |
 |---|---|
-| `GET /api/events` | SSE stream. Sends a `maintenance` event with `{ active, reopeningAt }` on connect (replay) and whenever either upstream state changes. |
-| `POST /api/maintenance` | Body: `{ active, reopeningAt? }`. Sets the **site-wide** maintenance flag locally; if OMS is connected the OMS is the authoritative source and will override this on the next SSE update. Does not affect kiosk-only (`kiosk-maintenance`) state, which can only be set via the OMS. |
+| `GET /api/events` | SSE stream. Sends a `maintenance` event with `{ active, reopeningAt, printerLockout }` on connect (replay) and whenever any upstream state changes. |
+| `POST /api/maintenance` | Body: `{ active, reopeningAt? }`. Sets the **site-wide** maintenance flag locally; if OMS is connected the OMS is the authoritative source and will override this on the next SSE update. Does not affect kiosk-only (`kiosk-maintenance`) or printer-lockout state. |
+| `POST /api/printer-lockout/clear` | Clears the local printer lockout. Intended to be triggered only by the hidden staff control on the kiosk touchscreen (tap "TERMINAL OFFLINE" 5x within 3s to reveal a confirm button) — not meant to be called directly in normal operation. |
+
+## Printer failure handling
+
+A failed print attempt (`POST /api/orders`) does three things: logs `[print] order <ref> FAILED: <message>` to the console/journal, POSTs to the OMS's `/api/printer-alert` if `KIOSK_OMS_URL` is set, and engages the local printer lockout described above — the kiosk shows "TERMINAL OFFLINE" to further customers until staff clear it via the hidden tap gesture. The customer whose print just failed sees "This kiosk's printer isn't working. Please try another kiosk." — their order still exists server-side but can't be recalled at payment without a printed barcode, so it's expected to simply expire (see `POST /api/kiosk/orders/expire.json` in emftillweb).
 
 ## Dependencies
 
