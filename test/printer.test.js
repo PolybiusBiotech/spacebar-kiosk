@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { printOrderSlip, clearPrinterQueue } from "../src/printer.js";
+import { printOrderSlip, clearPrinterQueue, parseLpstatOutput } from "../src/printer.js";
 
 const ORDER = { transaction_id: 1, total: "1.00", lines: [] };
 
@@ -49,4 +49,39 @@ test("clearPrinterQueue resolves ok:false (not throw) for a nonexistent printer"
 
 test("clearPrinterQueue never rejects, regardless of cancel's availability or exit code", async () => {
   await assert.doesNotReject(() => clearPrinterQueue({ printerName: "" }));
+});
+
+// A real printer mid-job reported "printer SpacebarTill now printing
+// SpacebarTill-28.  enabled since ...\n\tSending data to printer." — this
+// was previously misclassified as broken (only "is printing" was checked
+// for, which lpstat never actually says) and the raw status text got
+// surfaced to staff as if it were an error, despite the printer being fine.
+test("parseLpstatOutput treats an active job (\"now printing\") as ok, not an error", () => {
+  const result = parseLpstatOutput("printer SpacebarTill now printing SpacebarTill-28.  enabled since Wed 15 Jul 2026 08:26:25 PM BST\n\tSending data to printer.\n");
+  assert.equal(result.ok, true);
+  assert.equal(result.status, "idle");
+});
+
+test("parseLpstatOutput treats a genuinely idle printer as ok", () => {
+  const result = parseLpstatOutput("printer SpacebarTill is idle.  enabled since Wed 15 Jul 2026 08:26:25 PM BST\n");
+  assert.equal(result.ok, true);
+});
+
+test("parseLpstatOutput reports offline printers as not ok", () => {
+  const result = parseLpstatOutput("printer SpacebarTill is not available at this time.\n");
+  assert.equal(result.ok, false);
+  assert.equal(result.status, "offline");
+});
+
+test("parseLpstatOutput reports disabled/paused printers as not ok", () => {
+  const result = parseLpstatOutput("printer SpacebarTill disabled since Wed 15 Jul 2026 -\n\treason unknown\n");
+  assert.equal(result.ok, false);
+  assert.equal(result.status, "paused");
+});
+
+test("parseLpstatOutput's unrecognised-status message clearly states there's a problem, not just raw output", () => {
+  const result = parseLpstatOutput("some future lpstat wording we don't recognise yet\n");
+  assert.equal(result.ok, false);
+  assert.match(result.message, /problem detected/i);
+  assert.match(result.message, /some future lpstat wording we don't recognise yet/);
 });

@@ -26,6 +26,26 @@ function printArgs(config) {
 // Only checks a named printer — if no printerName is configured, returns ok
 // and lets lp use the CUPS default (exit code is the only error signal then).
 
+// Parses `lpstat -p`'s stdout into a status result — split out from the
+// spawn/IO wrapper below so the string matching itself is unit-testable.
+// "now printing" (an active job) was previously missed — the check only
+// looked for "is printing", which lpstat never actually says — so a printer
+// mid-job was misreported as broken, with the raw idle-ish status text
+// surfaced to staff as if it were the error.
+export function parseLpstatOutput(stdout) {
+  if (stdout.includes("is idle") || stdout.includes("now printing")) {
+    return { ok: true, status: "idle", message: "Printer ready." };
+  }
+  if (stdout.includes("is not available")) {
+    return { ok: false, status: "offline", message: "Printer is offline or not connected." };
+  }
+  if (stdout.includes("disabled since")) {
+    return { ok: false, status: "paused", message: "Printer is paused — check CUPS queue." };
+  }
+  const detail = stdout.trim() || "no output from lpstat";
+  return { ok: false, status: "unknown", message: `Printer problem detected (unrecognised status): ${detail}` };
+}
+
 function checkCupsStatus(printerName) {
   return new Promise((resolve) => {
     const child = spawn("lpstat", ["-p", printerName], {
@@ -43,19 +63,11 @@ function checkCupsStatus(printerName) {
 
     child.on("close", code => {
       if (code !== 0) {
-        const msg = stderr.trim() || `lpstat exited with code ${code}`;
-        resolve({ ok: false, status: "printer-not-found", message: msg });
+        const detail = stderr.trim() || `lpstat exited with code ${code}`;
+        resolve({ ok: false, status: "printer-not-found", message: `Printer not found in CUPS: ${detail}` });
         return;
       }
-      if (stdout.includes("is idle") || stdout.includes("is printing")) {
-        resolve({ ok: true, status: "idle", message: "Printer ready." });
-      } else if (stdout.includes("is not available")) {
-        resolve({ ok: false, status: "offline", message: "Printer is offline or not connected." });
-      } else if (stdout.includes("is disabled")) {
-        resolve({ ok: false, status: "paused", message: "Printer is paused — check CUPS queue." });
-      } else {
-        resolve({ ok: false, status: "unknown", message: stdout.trim() || "Unrecognised lpstat output." });
-      }
+      resolve(parseLpstatOutput(stdout));
     });
   });
 }

@@ -752,6 +752,11 @@ document.addEventListener("click", event => {
   }
 
   if (event.target.closest('[data-new-order]') || event.target.closest('[data-retry]')) {
+    if (event.target.closest('[data-retry]') && state.screen === 'printer-error') {
+      // They've now read the message — no need to wait out the rest of the
+      // kiosk's grace period before going offline for the next customer.
+      jsonFetch("/api/printer-lockout/acknowledge", { method: "POST" }).catch(() => {});
+    }
     clearResetTimer();
     stopCRT(); stopCompleteGlitch();
     state.basket.clear();

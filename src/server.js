@@ -207,7 +207,7 @@ function connectOmsMaintenance(config) {
   try {
     url = new URL(`${config.omsUrl}/pay/events`);
   } catch {
-    console.error(`[maintenance] KIOSK_OMS_URL "${config.omsUrl}" is not a valid URL — did you forget "http://"? Not retrying until restart.`);
+    console.error(`[maintenance] KIOSK_OMS_URL "${config.omsUrl}" is not a valid URL (missing http://?)`);
     return;
   }
   const lib = url.protocol === "https:" ? https : http;
@@ -371,7 +371,7 @@ export function createServer(config, { getStock: getStockOverride = null } = {})
           notifyOmsOfPrinterError(config, error.message);
           if (!printerLockoutMode) {
             printerLockoutMode = true;
-            console.error(`[printer-lockout] engaging in ${PRINTER_LOCKOUT_BROADCAST_DELAY_MS / 1000}s (giving this customer time to read their error first) — kiosk then offline until staff clears it locally`);
+            console.error(`[printer-lockout] engaging in ${PRINTER_LOCKOUT_BROADCAST_DELAY_MS / 1000}s`);
             setTimeout(() => {
               // Could have been cleared already (staff fixed it fast) — don't
               // re-broadcast an "active" state that's no longer true.
@@ -419,6 +419,16 @@ export function createServer(config, { getStock: getStockOverride = null } = {})
         broadcastKioskMaintenance();
         console.log(`[maintenance] local set: ${maintenanceMode ? "ON" : "OFF"}${maintenanceReopeningAt ? ` reopening ${maintenanceReopeningAt}` : ""}`);
         sendJson(res, 200, { ok: true, active: maintenanceMode, reopeningAt: maintenanceReopeningAt });
+        return;
+      }
+
+      // Triggered when the affected customer taps "Acknowledged" on the
+      // printer-error screen — they've now read the message, so there's no
+      // need to wait out the rest of PRINTER_LOCKOUT_BROADCAST_DELAY_MS
+      // before taking the kiosk offline for the next customer.
+      if (requestUrl.pathname === "/api/printer-lockout/acknowledge" && req.method === "POST") {
+        if (printerLockoutMode) broadcastKioskMaintenance();
+        sendJson(res, 200, { ok: true });
         return;
       }
 
