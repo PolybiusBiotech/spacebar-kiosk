@@ -158,6 +158,26 @@ export async function checkPrinterStatus(config) {
   return cups;
 }
 
+// Cancels every queued/stuck CUPS job for this printer (or all destinations
+// if no printerName is set). Intended for the "staff confirms fixed" path:
+// while a printer was down, `lp` can silently queue jobs rather than fail
+// (see checkCupsStatus above) — without this, those stale jobs could all
+// print at once as a backlog once the printer comes back online.
+export function clearPrinterQueue(config) {
+  return new Promise(resolve => {
+    const args = ["-a", ...(config.printerName ? [config.printerName] : [])];
+    const child = spawn("cancel", args, { stdio: ["ignore", "ignore", "pipe"] });
+    let stderr = "";
+    child.stderr.on("data", chunk => { stderr += chunk.toString(); });
+    child.on("error", err => resolve({ ok: false, message: `cancel not found or failed to run: ${err.message}` }));
+    child.on("close", code => {
+      resolve(code === 0
+        ? { ok: true, message: "Printer queue cleared." }
+        : { ok: false, message: stderr.trim() || `cancel exited with code ${code}` });
+    });
+  });
+}
+
 async function dummyPrintSlip(config, order, slipData) {
   const ref = String(order.transaction_id ?? "unknown");
   const receiptsDir = path.resolve("receipts");

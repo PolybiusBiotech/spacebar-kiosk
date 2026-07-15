@@ -184,7 +184,7 @@ The kiosk merges all three: its own `/api/events` reports `active: true` if any 
 |---|---|
 | `GET /api/events` | SSE stream. Sends a `maintenance` event with `{ active, reopeningAt, printerLockout }` on connect (replay) and whenever any upstream state changes. |
 | `POST /api/maintenance` | Body: `{ active, reopeningAt? }`. Sets the **site-wide** maintenance flag locally; if OMS is connected the OMS is the authoritative source and will override this on the next SSE update. Does not affect kiosk-only (`kiosk-maintenance`) or printer-lockout state. |
-| `POST /api/printer-lockout/clear` | Clears the local printer lockout. Intended to be triggered only by the hidden staff control on the kiosk touchscreen (tap "TERMINAL OFFLINE" 5x within 3s to reveal a confirm button) — not meant to be called directly in normal operation. |
+| `POST /api/printer-lockout/clear` | Clears the local printer lockout. Intended to be triggered only by the hidden staff control on the kiosk touchscreen (tap "TERMINAL OFFLINE" 3x within 10s to reveal a confirm button) — not meant to be called directly in normal operation. |
 
 ## Printer failure handling
 

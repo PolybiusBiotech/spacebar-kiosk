@@ -1071,7 +1071,7 @@ function connectKioskEvents() {
 }
 connectKioskEvents();
 
-// Hidden staff control: tap "TERMINAL OFFLINE" 5x within 3s to reveal a
+// Hidden staff control: tap "TERMINAL OFFLINE" 3x within 10s to reveal a
 // button that clears a print-failure lockout — only does anything when the
 // current closure was auto-triggered by this kiosk's own printer (not a
 // genuine OMS-driven closure, which a single kiosk shouldn't be able to
@@ -1080,8 +1080,8 @@ document.addEventListener("click", e => {
   if (!e.target.closest(".maintenance-title") || !currentPrinterLockout) return;
   staffTapCount++;
   clearTimeout(staffTapTimer);
-  staffTapTimer = setTimeout(() => { staffTapCount = 0; }, 3_000);
-  if (staffTapCount >= 5) {
+  staffTapTimer = setTimeout(() => { staffTapCount = 0; }, 10_000);
+  if (staffTapCount >= 3) {
     staffTapCount = 0;
     printerLockoutClearBtn.hidden = false;
   }
@@ -1091,8 +1091,17 @@ printerLockoutClearBtn.addEventListener("click", async () => {
   printerLockoutClearBtn.disabled = true;
   try {
     await jsonFetch("/api/printer-lockout/clear", { method: "POST" });
+    // Don't wait for the SSE round-trip — on a flaky connection the
+    // EventSource reconnect backoff can take up to 30s, which looks like
+    // "clearing needs something else" when it's really just lag. The
+    // clear already succeeded server-side, so reflect it immediately.
+    maintenanceOverlay.hidden = true;
+    currentPrinterLockout = false;
+    printerLockoutClearBtn.hidden = true;
+    stopMaintenanceCountdown();
+    stopMaintenanceGlitch();
   } catch {
-    // SSE will still reflect server state on next event; just let staff retry the tap gesture
+    // leave the overlay up; staff can retry the tap gesture
   } finally {
     printerLockoutClearBtn.disabled = false;
   }

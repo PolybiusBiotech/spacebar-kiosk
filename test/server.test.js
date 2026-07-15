@@ -273,7 +273,7 @@ test("print failure engages the lockout once, and does not re-log on repeated fa
   try {
     const res1 = await request(server, { method: "POST", url: "/api/orders", body: ORDER_BODY });
     assert.equal(res1.statusCode, 502);
-    const engaged = () => errorMock.mock.calls.filter(c => c.arguments[0]?.includes("[printer-lockout] engaged")).length;
+    const engaged = () => errorMock.mock.calls.filter(c => c.arguments[0]?.includes("[printer-lockout] engaging")).length;
     assert.equal(engaged(), 1, "lockout engages on first failure");
 
     const res2 = await request(server, { method: "POST", url: "/api/orders", body: ORDER_BODY });
@@ -296,7 +296,7 @@ test("POST /api/printer-lockout/clear resets the lockout so a later failure re-e
   const errorMock = mock.method(console, "error", () => {});
   try {
     await request(server, { method: "POST", url: "/api/orders", body: ORDER_BODY });
-    const engaged = errorMock.mock.calls.filter(c => c.arguments[0]?.includes("[printer-lockout] engaged")).length;
+    const engaged = errorMock.mock.calls.filter(c => c.arguments[0]?.includes("[printer-lockout] engaging")).length;
     assert.equal(engaged, 1, "lockout re-engages after being cleared");
   } finally {
     errorMock.mock.restore();

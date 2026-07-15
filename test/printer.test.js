@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { printOrderSlip } from "../src/printer.js";
+import { printOrderSlip, clearPrinterQueue } from "../src/printer.js";
 
 const ORDER = { transaction_id: 1, total: "1.00", lines: [] };
 
@@ -36,4 +36,17 @@ test("printOrderSlip skips entirely when printEnabled is false, regardless of mo
 test("printOrderSlip does not dummy-print just because mockMode is true", async () => {
   const config = { ...BASE_CONFIG, mockMode: true, dummyPrint: false, printerName: "definitely-not-a-real-printer-xyz" };
   await assert.rejects(() => printOrderSlip(config, ORDER));
+});
+
+// Used on the "staff confirms fixed" path: while a printer was down, lp can
+// silently queue jobs rather than fail, so stale jobs need clearing before
+// resuming — see checkCupsStatus's comment in src/printer.js.
+test("clearPrinterQueue resolves ok:false (not throw) for a nonexistent printer", async () => {
+  const result = await clearPrinterQueue({ printerName: "definitely-not-a-real-printer-xyz" });
+  assert.equal(result.ok, false);
+  assert.ok(result.message.length > 0, "has a diagnostic message");
+});
+
+test("clearPrinterQueue never rejects, regardless of cancel's availability or exit code", async () => {
+  await assert.doesNotReject(() => clearPrinterQueue({ printerName: "" }));
 });

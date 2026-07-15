@@ -4,7 +4,7 @@ import path from "node:path";
 
 import { loadConfig, validateRuntimeConfig } from "./config.js";
 import { fetchStock, placeOrder, TillwebError } from "./tillweb.js";
-import { printOrderSlip, checkPrinterStatus } from "./printer.js";
+import { printOrderSlip, checkPrinterStatus, clearPrinterQueue } from "./printer.js";
 import { sendJson, serveStatic } from "@spacebar/shared/http-helpers.js";
 
 async function readJson(req) {
@@ -181,6 +181,12 @@ let kioskOnlyMode = false;
 let kioskOnlyReopeningAt = "";
 let printerLockoutMode = false;
 const kioskEventClients = new Set();
+
+// Grace period before the offline overlay actually broadcasts, so it
+// doesn't slam over the affected customer's own "try another kiosk"
+// screen before they've had a chance to read it — the overlay is a
+// separate, always-on-top element, independent of state.screen.
+const PRINTER_LOCKOUT_BROADCAST_DELAY_MS = 15_000;
 
 function maintenancePayload() {
   const active = maintenanceMode || kioskOnlyMode || printerLockoutMode;
@@ -365,8 +371,12 @@ export function createServer(config, { getStock: getStockOverride = null } = {})
           notifyOmsOfPrinterError(config, error.message);
           if (!printerLockoutMode) {
             printerLockoutMode = true;
-            broadcastKioskMaintenance();
-            console.error("[printer-lockout] engaged — kiosk taken offline until staff clears it locally");
+            console.error(`[printer-lockout] engaging in ${PRINTER_LOCKOUT_BROADCAST_DELAY_MS / 1000}s (giving this customer time to read their error first) — kiosk then offline until staff clears it locally`);
+            setTimeout(() => {
+              // Could have been cleared already (staff fixed it fast) — don't
+              // re-broadcast an "active" state that's no longer true.
+              if (printerLockoutMode) broadcastKioskMaintenance();
+            }, PRINTER_LOCKOUT_BROADCAST_DELAY_MS).unref();
           }
           sendJson(res, 502, {
             ...order,
@@ -419,6 +429,11 @@ export function createServer(config, { getStock: getStockOverride = null } = {})
         printerLockoutMode = false;
         broadcastKioskMaintenance();
         console.log("[printer-lockout] cleared by staff");
+        if (config.printEnabled && !config.dummyPrint) {
+          const cleared = await clearPrinterQueue(config);
+          if (cleared.ok) console.log(`[printer-lockout] ${cleared.message}`);
+          else console.error(`[printer-lockout] failed to clear print queue: ${cleared.message}`);
+        }
         sendJson(res, 200, { ok: true });
         return;
       }
