@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { renderSlip, renderSlipHtml, barcodeRasterBytes } from "../src/slip.js";
+import { renderSlip, renderSlipHtml, barcodeRasterBytes, COLS } from "../src/slip.js";
 
 // Matches emftillweb's order response shape (emf/kiosk.py _order_to_dict()):
 // barcode is the pre-permuted, pre-HMAC'd 1D barcode string — slip.js is a
@@ -50,6 +50,29 @@ test("renderSlip includes order name, item description, status, and total label"
   assert.ok(text.includes("Total"), "total label");
   assert.ok(text.includes("CREDIT TRANSFER PENDING"), "status line");
   assert.ok(text.includes("Present this slip at the payment node"), "status sub");
+});
+
+test("renderSlip wraps a long item description without pushing the price onto its own overflow line", async () => {
+  // Long enough to wrap across 3+ lines at COLS=33 — previously the greedy
+  // fill pass didn't reserve room for the price on non-last lines, so the
+  // organically-wrapped last line could run right up to the column width
+  // and force " £X.XX" onto an unindented hardware-wrapped overflow line.
+  const longDescOrder = {
+    ...ORDER,
+    lines: [
+      { description: "BuzzBallz Passionfruit Martini (13.5% ABV) 200ml can", quantity: 1, line_total: "6.50" }
+    ]
+  };
+  const buf = await renderSlip(longDescOrder);
+  const lines = buf.toString("latin1").split("\n");
+
+  for (const line of lines) {
+    assert.ok(line.length <= COLS, `line exceeds ${COLS} cols: ${JSON.stringify(line)}`);
+  }
+
+  const firstItemLine = lines.find(l => l.startsWith("1 x "));
+  assert.ok(firstItemLine, "first item line is present");
+  assert.ok(firstItemLine.includes("6.50"), "price is on the first line, next to the qty prefix");
 });
 
 test("renderSlip includes Polybius lore header", async () => {

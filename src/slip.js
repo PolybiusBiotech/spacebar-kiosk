@@ -38,7 +38,7 @@ function buildLogoDataUrl() {
 
 const LOGO_DATA_URL = buildLogoDataUrl();
 
-const COLS      = 33; // characters per line at standard density on 76mm paper
+export const COLS = 33; // characters per line at standard density on 76mm paper
 const PRICE_COL =  7; // fixed price column width — right-aligned, fits up to £999.99
 
 const ESC = 0x1B;
@@ -118,48 +118,30 @@ function itemLine(item) {
   const price  = priceCol(item.line_total);
   const prefix = `${qty} x `;
   const desc   = String(item.description ?? "");
-  // Width available for the description on the first line (price on same line)
-  const firstLineDescWidth = COLS - prefix.length - PRICE_COL - 1;
+  // Width available for description text on any line — the price column is
+  // reserved on every line (not just the one printing it) so a long word-
+  // wrapped line can never grow too long to fit " £X.XX" after it and push
+  // the price onto the printer's own unindented overflow-wrap line.
+  const descWidth = COLS - prefix.length - PRICE_COL - 1;
 
-  if (desc.length <= firstLineDescWidth) {
+  if (desc.length <= descWidth) {
     // Short description fits on one line: pad and right-align price
-    return t(`${prefix}${desc.padEnd(firstLineDescWidth)} ${price}`);
+    return t(`${prefix}${desc.padEnd(descWidth)} ${price}`);
   }
 
-  // Long description: wrap across multiple lines; price right-aligned on last line
-  // Continuation lines are indented by prefix.length spaces to align under description
-  const indent      = " ".repeat(prefix.length);
-  const contWidth   = COLS - prefix.length - PRICE_COL - 1;
-  const wrapWidth   = COLS - prefix.length; // full wrap width without price
+  // Long description: wrap across multiple lines, all at the same reserved
+  // width. Price prints on the first line (with the qty prefix) rather than
+  // the last, so it stays next to the quantity regardless of how many lines
+  // the description wraps to. Continuation lines are indented by
+  // prefix.length spaces to align under the description.
+  const indent = " ".repeat(prefix.length);
+  const linesArr = wrapWords(desc, descWidth);
 
-  // Split desc into words and fill lines
-  const words  = desc.split(" ");
-  const linesArr = [];
-  let   current  = "";
-  for (const word of words) {
-    const candidate = current ? `${current} ${word}` : word;
-    if (candidate.length <= wrapWidth) {
-      current = candidate;
-    } else {
-      if (current) linesArr.push(current);
-      current = word;
-    }
-  }
-  if (current) linesArr.push(current);
-
-  // Build output: first line has prefix, subsequent lines are indented
   const out = [];
   for (let i = 0; i < linesArr.length; i++) {
     const lineText = linesArr[i];
-    const isLast   = i === linesArr.length - 1;
     if (i === 0) {
-      if (isLast) {
-        out.push(t(`${prefix}${lineText.padEnd(firstLineDescWidth)} ${price}`));
-      } else {
-        out.push(t(`${prefix}${lineText}`));
-      }
-    } else if (isLast) {
-      out.push(t(`${indent}${lineText.padEnd(contWidth)} ${price}`));
+      out.push(t(`${prefix}${lineText.padEnd(descWidth)} ${price}`));
     } else {
       out.push(t(`${indent}${lineText}`));
     }
@@ -441,6 +423,7 @@ export async function renderSlip(order) {
     SELECT_CP437,
     ALIGN_CENTER,
     COLOUR_RED, LOGO_ESC_POS, COLOUR_BLACK,
+    t(""),
     // vendor: Font B (condensed) to de-emphasise it — matches target's 0.6rem grey styling
     FONT_B, ...wrapWords(d.vendorLine, COLS).map(l => t(l)), FONT_A,
     // "space" is graffiti — normal size (SIZE_RESET), red, bold+italic, offset-left.
