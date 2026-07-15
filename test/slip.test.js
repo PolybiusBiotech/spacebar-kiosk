@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { renderSlip, renderSlipHtml } from "../src/slip.js";
+import { renderSlip, renderSlipHtml, barcodeRasterBytes } from "../src/slip.js";
 
 // Matches emftillweb's order response shape (emf/kiosk.py _order_to_dict()):
 // barcode is the pre-permuted, pre-HMAC'd 1D barcode string — slip.js is a
@@ -55,17 +55,60 @@ test("renderSlip includes order name, item description, status, and total label"
 test("renderSlip includes Polybius lore header", async () => {
   const buf = await renderSlip(ORDER);
   const text = buf.toString("latin1");
-  assert.ok(text.includes("POLYBIUS BIOTECH GALACTIC TRADE NETWORK"), "vendor line");
+  // Word-wrapped at COLS (33 chars) rather than truncated, so "NETWORK" may
+  // land on its own line rather than staying contiguous with "TRADE".
+  assert.ok(text.includes("POLYBIUS BIOTECH GALACTIC TRADE"), "vendor line, first part");
+  assert.ok(text.includes("NETWORK"), "vendor line, wrapped remainder");
 });
 
-test("renderSlip prints order.barcode verbatim as an ITF (1D) barcode", async () => {
+// The barcode is rasterized as a bitmap and printed via GS v 0 rather than
+// the printer's own GS k barcode firmware, which this printer (an Epson
+// U220A, or at least this unit/firmware) doesn't implement correctly in
+// either the legacy or modern GS k encoding — see slip.js's header comment.
+
+test("barcodeRasterBytes returns a GS v 0 raster command", () => {
+  const raster = barcodeRasterBytes(ORDER.barcode);
+  assert.equal(raster[0], 0x1D, "GS");
+  assert.equal(raster[1], 0x76, "v");
+  assert.equal(raster[2], 0x30, "0");
+  assert.equal(raster[3], 0x00, "mode 0 (normal)");
+});
+
+test("barcodeRasterBytes encodes width/height matching the raster payload size", () => {
+  const raster = barcodeRasterBytes(ORDER.barcode);
+  const bytesPerRow = raster[4] | (raster[5] << 8);
+  const height = raster[6] | (raster[7] << 8);
+  assert.equal(raster.length, 8 + bytesPerRow * height, "header dimensions match payload length");
+});
+
+test("barcodeRasterBytes produces different bars for different codes", () => {
+  const a = barcodeRasterBytes("0957481733");
+  const b = barcodeRasterBytes("1234567890");
+  assert.ok(!a.equals(b), "different barcodes rasterize differently");
+});
+
+test("barcodeRasterBytes rejects malformed input instead of rendering garbage", () => {
+  assert.equal(barcodeRasterBytes("").length, 0, "empty string");
+  assert.equal(barcodeRasterBytes("123").length, 0, "odd length (ITF needs pairs of digits)");
+  assert.equal(barcodeRasterBytes("KIOSK:123").length, 0, "non-numeric");
+});
+
+test("renderSlip prints the barcode raster and the human-readable digits", async () => {
   const buf = await renderSlip(ORDER);
-  const itfCommand = Buffer.concat([
-    Buffer.from([0x1D, 0x6B, 70, ORDER.barcode.length]), // GS k 70 n — ITF, new (explicit-length) format
-    Buffer.from(ORDER.barcode, "ascii"),
-  ]);
-  assert.ok(buf.includes(itfCommand), "ITF barcode command encodes order.barcode verbatim");
+  assert.ok(buf.includes(barcodeRasterBytes(ORDER.barcode)), "barcode raster bytes are present");
   assert.ok(buf.toString("latin1").includes(ORDER.barcode), "barcode also printed as human-readable text");
+});
+
+test("renderSlip prints the order number before the first item line (top placement)", async () => {
+  const buf = await renderSlip(ORDER);
+  const text = buf.toString("latin1");
+  assert.ok(text.indexOf(ORDER.transaction_id.toString()) < text.indexOf("Club Mate 500ml"), "order number leads the slip");
+});
+
+test("renderSlip prints £ using the printer's PC437 code point (0x9C), not raw Latin-1 (0xA3)", async () => {
+  const buf = await renderSlip(ORDER); // ORDER.total is "9.00" -> priceCol pads to PRICE_COL (7) wide
+  const cp437Bytes = Buffer.concat([Buffer.from([0x9C]), Buffer.from("  9.00", "ascii")]);
+  assert.ok(buf.includes(cp437Bytes), "total amount uses the PC437 £ byte");
 });
 
 // ── renderSlipHtml ─────────────────────────────────────────────────────────

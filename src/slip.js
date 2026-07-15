@@ -4,11 +4,14 @@
 // matrix printer's ink bleed makes QR codes unreliable to scan, and the
 // till's barcode scanners can't read QR at all.
 //
-// GS k uses the "new" explicit-length-byte encoding (function type >= 65,
-// no NUL terminator) rather than the legacy NUL-terminated form (m 0-6) —
-// some ESC/POS-compatible firmware (this U220A included) doesn't implement
-// the legacy form and prints the raw command/data bytes as garbled text
-// instead of a barcode.
+// The ITF bars are rasterized here and printed as a bitmap (GS v 0, same
+// mechanism as the logo) rather than via the printer's own GS k barcode
+// firmware — this printer doesn't render GS k correctly in either the
+// legacy NUL-terminated or newer explicit-length encoding, printing raw
+// command/data bytes as garbled text instead of bars either way.
+//
+// Requires ImageMagick (`magick`) on PATH to rasterize the logo — see
+// README's Raspberry Pi Install prerequisites.
 
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -16,7 +19,11 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
-const LOGO_BMP = resolve(__dir, "../../design/poly claw.bmp");
+// Self-contained within this repo — a prior version pointed outside the repo
+// at a monorepo-only path (../../design/poly claw.bmp) that doesn't exist in
+// a standalone deploy. Pre-thresholded 1-bit BMP (not the grayscale PNG used
+// for the HTML preview) — no on-the-fly dithering needed for print.
+const LOGO_SOURCE_IMAGE = resolve(__dir, "../public/images/poly claw.bmp");
 const LOGO_WIDTH_PX = 80;
 
 function buildLogoDataUrl() {
@@ -48,18 +55,31 @@ const DBLSTRIKE_OFF = Buffer.from([ESC, 0x47, 0x00]);
 const UNDERLINE_ON  = Buffer.from([ESC, 0x2D, 0x01]);
 const UNDERLINE_OFF = Buffer.from([ESC, 0x2D, 0x00]);
 const SIZE_2X       = Buffer.from([GS,  0x21, 0x11]); // double width + double height
-const SIZE_3X       = Buffer.from([GS,  0x21, 0x22]); // triple width + triple height
 const SIZE_RESET    = Buffer.from([GS,  0x21, 0x00]);
-const LINE_SP_TIGHT = Buffer.from([ESC, 0x33, 0x00]); // ESC 3 0 — zero inter-line spacing
-const LINE_SP_RESET = Buffer.from([ESC, 0x32]);       // ESC 2 — restore default 1/6" spacing
 const ITALIC_ON     = Buffer.from([ESC, 0x34]);        // ESC 4 — italic (may be silently ignored on U220A)
 const ITALIC_OFF    = Buffer.from([ESC, 0x35]);        // ESC 5
 const FONT_B        = Buffer.from([ESC, 0x4D, 0x01]); // ESC M 1 — condensed font (smaller on supported printers)
 const FONT_A        = Buffer.from([ESC, 0x4D, 0x00]); // ESC M 0 — standard font (reset)
+const SELECT_CP437  = Buffer.from([ESC, 0x74, 0x00]); // ESC t 0 — character code table: PC437
 const FULL_CUT      = Buffer.from([GS,  0x56, 0x41, 0x00]);
 
+// £ is U+00A3; Node's ascii/latin1 encoding writes that as byte 0xA3, but
+// in PC437 (selected above) 0xA3 is "ú" — PC437's £ is byte 0x9C. Every
+// text-emitting helper below must route through this, not raw Buffer.from.
+const POUND_CP437 = 0x9C;
+
+function encodeText(str) {
+  const segments = String(str).split("£");
+  const parts = [];
+  for (let i = 0; i < segments.length; i++) {
+    if (i > 0) parts.push(Buffer.from([POUND_CP437]));
+    parts.push(Buffer.from(segments[i], "ascii"));
+  }
+  return Buffer.concat(parts);
+}
+
 function t(str) {
-  return Buffer.from(`${str}\n`, "ascii");
+  return Buffer.concat([encodeText(str), Buffer.from("\n", "ascii")]);
 }
 
 function money(value) {
@@ -72,6 +92,24 @@ function money(value) {
 function priceCol(value) {
   const n = Number.parseFloat(value);
   return "£" + (Number.isFinite(n) ? n.toFixed(2) : "?.??").padStart(PRICE_COL - 1);
+}
+
+// Word-wrap into lines <= width chars — avoids cutting a word mid-letter.
+function wrapWords(text, width) {
+  const words = String(text).split(" ");
+  const lines = [];
+  let current = "";
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (candidate.length <= width) {
+      current = candidate;
+    } else {
+      if (current) lines.push(current);
+      current = word;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
 }
 
 function itemLine(item) {
@@ -128,10 +166,21 @@ function itemLine(item) {
   return Buffer.concat(out);
 }
 
+// GS v 0 — print a 1-bit raster image. Shared by the logo (from a PBM built
+// by ImageMagick) and the barcode (rasterized directly, no ImageMagick).
+function rasterCommand(bytesPerRow, height, raster) {
+  return Buffer.concat([
+    Buffer.from([GS, 0x76, 0x30, 0x00,
+      bytesPerRow & 0xFF, (bytesPerRow >> 8) & 0xFF,
+      height & 0xFF, (height >> 8) & 0xFF]),
+    raster,
+  ]);
+}
+
 function buildLogoBytes() {
   try {
     const result = spawnSync("magick", [
-      LOGO_BMP,
+      LOGO_SOURCE_IMAGE,
       "-resize", `${LOGO_WIDTH_PX}x`,
       "-depth", "1",
       "pbm:-",
@@ -154,12 +203,7 @@ function buildLogoBytes() {
     const bytesPerRow = Math.ceil(w / 8);
     const raster = pbm.slice(pos, pos + bytesPerRow * h);
 
-    return Buffer.concat([
-      Buffer.from([GS, 0x76, 0x30, 0x00,
-        bytesPerRow & 0xFF, (bytesPerRow >> 8) & 0xFF,
-        h & 0xFF, (h >> 8) & 0xFF]),
-      raster,
-    ]);
+    return rasterCommand(bytesPerRow, h, raster);
   } catch {
     return Buffer.alloc(0);
   }
@@ -170,18 +214,75 @@ const LOGO_ESC_POS = buildLogoBytes();
 
 // ── 1D barcode rendering ───────────────────────────────────────────────────
 // The barcode string itself (permutation + HMAC check digits) is generated
-// by emftillweb and returned verbatim as order.barcode — this module just
-// prints it.
+// by emftillweb and returned verbatim as order.barcode — this module rasters
+// it as an Interleaved 2 of 5 (ITF) bitmap and prints it via GS v 0 (the same
+// raster mechanism as the logo), rather than the printer's own GS k barcode
+// firmware, which this printer doesn't implement correctly.
 
-function barcode1dBytes(code) {
-  const data = Buffer.from(code, "ascii");
-  return Buffer.concat([
-    Buffer.from([GS, 0x68, 80]),               // GS h 80 — barcode height 80 dots
-    Buffer.from([GS, 0x77, 3]),                // GS w 3 — module width 3
-    Buffer.from([GS, 0x48, 0]),                // GS H 0 — no HRI (printed as text below)
-    Buffer.from([GS, 0x6B, 70, data.length]),  // GS k 70 n — ITF, new format (explicit length)
-    data,
-  ]);
+// Element widths per digit (0=narrow, 1=wide), standard ITF encoding.
+const ITF_DIGIT_WIDTHS = [
+  [0, 0, 1, 1, 0], // 0
+  [1, 0, 0, 0, 1], // 1
+  [0, 1, 0, 0, 1], // 2
+  [1, 1, 0, 0, 0], // 3
+  [0, 0, 1, 0, 1], // 4
+  [1, 0, 1, 0, 0], // 5
+  [0, 1, 1, 0, 0], // 6
+  [0, 0, 0, 1, 1], // 7
+  [1, 0, 0, 1, 0], // 8
+  [0, 1, 0, 1, 0], // 9
+];
+
+const ITF_NARROW_PX = 3; // chunky, printer-friendly modules — this is a
+const ITF_WIDE_PX   = 8; // 9-pin dot matrix, fine 1px bars bleed together
+const ITF_QUIET_PX  = 12; // quiet-zone margin either side, aids scanning
+const ITF_HEIGHT_PX = 70;
+
+// Returns [{ bar: bool, width: px }, ...] left-to-right for a barcode
+// encoding `code` (must be an even-length decimal string).
+function itfElements(code) {
+  const elements = [];
+  const push = (bar, wide) => elements.push({ bar, width: wide ? ITF_WIDE_PX : ITF_NARROW_PX });
+
+  push(true, false); push(false, false); push(true, false); push(false, false); // start: N N N N
+  for (let i = 0; i < code.length; i += 2) {
+    const barDigit = ITF_DIGIT_WIDTHS[Number(code[i])];
+    const spaceDigit = ITF_DIGIT_WIDTHS[Number(code[i + 1])];
+    for (let j = 0; j < 5; j++) {
+      push(true, !!barDigit[j]);
+      push(false, !!spaceDigit[j]);
+    }
+  }
+  push(true, true); push(false, false); push(true, false); // stop: W N N
+
+  return elements;
+}
+
+export function barcodeRasterBytes(code) {
+  if (!code || code.length % 2 !== 0 || !/^\d+$/.test(code)) return Buffer.alloc(0);
+
+  const elements = itfElements(code);
+  const barsWidth = elements.reduce((sum, el) => sum + el.width, 0);
+  const totalWidth = barsWidth + ITF_QUIET_PX * 2;
+  const bytesPerRow = Math.ceil(totalWidth / 8);
+  const raster = Buffer.alloc(bytesPerRow * ITF_HEIGHT_PX, 0);
+
+  let x = ITF_QUIET_PX;
+  for (const el of elements) {
+    if (el.bar) {
+      for (let dx = 0; dx < el.width; dx++) {
+        const col = x + dx;
+        const byteIndex = col >> 3;
+        const bitMask = 0x80 >> (col & 7);
+        for (let row = 0; row < ITF_HEIGHT_PX; row++) {
+          raster[row * bytesPerRow + byteIndex] |= bitMask;
+        }
+      }
+    }
+    x += el.width;
+  }
+
+  return rasterCommand(bytesPerRow, ITF_HEIGHT_PX, raster);
 }
 
 // ── Shared receipt template ────────────────────────────────────────────────
@@ -297,17 +398,23 @@ export async function renderSlipHtml(order) {
 
 export async function renderSlip(order) {
   const d = buildReceiptData(order);
-  const barcodeEscPos = barcode1dBytes(d.barcode);
+  const barcodeRaster = barcodeRasterBytes(d.barcode);
 
   const label  = "Total ";
   const spaces = " ".repeat(Math.max(0, COLS - label.length - PRICE_COL));
 
   const parts = [
     INIT,
-    ALIGN_CENTER,
+    SELECT_CP437,
+    // Order number leads the slip — it's the single thing staff/customers
+    // need to find fastest. SIZE_2X (not 3X) with normal line spacing:
+    // SIZE_3X combined with zero-line-spacing rendered as an illegible
+    // smudge on this printer.
+    ALIGN_CENTER, BOLD_ON, SIZE_2X, t(d.orderName), SIZE_RESET, BOLD_OFF,
+    t("-".repeat(COLS)),
     COLOR_RED, LOGO_ESC_POS, COLOR_BLACK,
     // vendor: Font B (condensed) to de-emphasise it — matches target's 0.6rem grey styling
-    FONT_B, t(d.vendorLine.slice(0, COLS)), FONT_A,
+    FONT_B, ...wrapWords(d.vendorLine, COLS).map(l => t(l)), FONT_A,
     // "space" is graffiti — normal size (SIZE_RESET), red, bold+italic, offset-left.
     // Both "space" and the official name use SIZE_RESET so the size difference is subtle —
     // matching the target's 0.9rem vs 0.95rem ratio. Bold differentiates the official name.
@@ -315,14 +422,9 @@ export async function renderSlip(order) {
     BOLD_ON, ITALIC_ON, COLOR_RED, t("  space"), COLOR_BLACK, ITALIC_OFF, BOLD_OFF,
     // official name centred on its own line — SIZE_RESET + bold only (not double-height)
     // Keeps the name only marginally larger than the graffiti, matching the subtle scale
-    // difference in the target. The order number below uses SIZE_2X for the big emphasis.
+    // difference in the target.
     ALIGN_CENTER, BOLD_ON, SIZE_RESET, t("Base Asset Retrieval System"), BOLD_OFF,
-    t(d.locationLine.slice(0, COLS)),
-    // separator BEFORE order number (target has dividers both before and after)
-    ALIGN_LEFT, t("-".repeat(COLS)),
-    LINE_SP_TIGHT,
-    ALIGN_CENTER, BOLD_ON, SIZE_3X, t(d.orderName), SIZE_RESET, BOLD_OFF,
-    LINE_SP_RESET,
+    ...wrapWords(d.locationLine, COLS).map(l => t(l)),
     ALIGN_LEFT,
     t("-".repeat(COLS)),
   ];
@@ -336,14 +438,14 @@ export async function renderSlip(order) {
     // Bold + double-strike + red on the total row provides sufficient visual separation,
     // matching the target's border-top approach on the total-row.
     BOLD_ON, DBLSTRIKE_ON, COLOR_RED,
-    Buffer.from(label + spaces + priceCol(d.total.slice(1)), "ascii"),
+    encodeText(label + spaces + priceCol(d.total.slice(1))),
     COLOR_BLACK, DBLSTRIKE_OFF, BOLD_OFF, SIZE_RESET,
     Buffer.from("\n", "ascii"),
     ALIGN_CENTER,
     // status: bold only — no underline in target
     BOLD_ON, t(d.statusLine), BOLD_OFF,
     t(d.statusSub),
-    barcodeEscPos,
+    barcodeRaster,
     t(d.barcode),
     ...(d.createdAt ? [t(`Created: ${d.createdAt}`)] : []),
     ...(d.expiresAt ? [t(`Expires: ${d.expiresAt}`)] : []),
