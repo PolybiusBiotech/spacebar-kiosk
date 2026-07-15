@@ -103,12 +103,28 @@ test("barcodeRasterBytes sets 16-dot line spacing, then ESC * single-density ban
   assert.ok(raster.includes(Buffer.from([0x1B, 0x2A, 0x00])), "contains an ESC * 0 single-density band");
 });
 
-test("barcodeRasterBytes emits one ESC * band per 8 vertical pixels", () => {
+test("barcodeRasterBytes emits multiple ESC * chunks per band when width exceeds the printer's per-command limit", () => {
+  // Parses the exact structure (rather than scanning for byte values) since
+  // arbitrary bit-image data can coincidentally contain a 0x0A byte that
+  // isn't really a band-separator line feed.
   const raster = barcodeRasterBytes(ORDER.barcode);
-  const escStarHeader = Buffer.from([0x1B, 0x2A, 0x00]);
-  let count = 0, idx = 0;
-  while ((idx = raster.indexOf(escStarHeader, idx)) !== -1) { count++; idx += 1; }
-  assert.ok(count > 1, "barcode height requires multiple 8px bands");
+  let pos = 3; // after ESC 3 16
+  let bandCount = 0;
+  let maxChunksInABand = 0;
+  while (pos < raster.length - 2) { // before the trailing ESC 2
+    let chunksThisBand = 0;
+    while (raster[pos] === 0x1B && raster[pos + 1] === 0x2A && raster[pos + 2] === 0x00) {
+      const chunkWidth = raster[pos + 3] | (raster[pos + 4] << 8);
+      pos += 5 + chunkWidth;
+      chunksThisBand++;
+    }
+    assert.equal(raster[pos], 0x0A, "band ends with a single line feed");
+    pos += 1;
+    bandCount++;
+    maxChunksInABand = Math.max(maxChunksInABand, chunksThisBand);
+  }
+  assert.ok(bandCount > 1, "barcode height requires multiple 8px bands");
+  assert.ok(maxChunksInABand > 1, "barcode width exceeds a single ESC * command's limit, so each band is chunked");
 });
 
 test("barcodeRasterBytes produces different bars for different codes", () => {

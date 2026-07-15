@@ -162,6 +162,15 @@ function itemLine(item) {
 const LINE_SPACING_16    = Buffer.from([ESC, 0x33, 16]); // ESC 3 16
 const LINE_SPACING_RESET = Buffer.from([ESC, 0x32]);     // ESC 2 — revert to default
 
+// This printer silently truncates a single ESC * command past ~192 dots
+// (54mm at ~90dpi, measured against a real barcode print) — a suspiciously
+// round number for a physical paper-width limit, more likely a small
+// internal graphics buffer cap. Chunk each band under that instead of
+// shrinking the (already-verified-correct) module widths: consecutive
+// ESC * calls with no line feed between them tile horizontally, since a
+// bit-image command advances the print position by its own width.
+const ESC_STAR_MAX_CHUNK_PX = 160; // comfortably under the ~192px cutoff
+
 // `raster` is row-major, 1 bit per pixel, MSB-first, `bytesPerRow` bytes
 // per row, `height` rows — the same format buildLogoBytes()'s PBM parsing
 // and barcodeRasterBytes()'s bit-packing both already produce.
@@ -172,19 +181,24 @@ function escStarBitImage(bytesPerRow, height, raster) {
 
   for (let band = 0; band < bandCount; band++) {
     const yStart = band * 8;
-    const colData = Buffer.alloc(width);
-    for (let x = 0; x < width; x++) {
-      let byteVal = 0;
-      for (let bit = 0; bit < 8; bit++) {
-        const y = yStart + bit;
-        if (y >= height) continue;
-        const srcByteIndex = y * bytesPerRow + (x >> 3);
-        const srcBitMask = 0x80 >> (x & 7);
-        if (raster[srcByteIndex] & srcBitMask) byteVal |= (0x80 >> bit);
+    for (let chunkStart = 0; chunkStart < width; chunkStart += ESC_STAR_MAX_CHUNK_PX) {
+      const chunkWidth = Math.min(ESC_STAR_MAX_CHUNK_PX, width - chunkStart);
+      const colData = Buffer.alloc(chunkWidth);
+      for (let dx = 0; dx < chunkWidth; dx++) {
+        const x = chunkStart + dx;
+        let byteVal = 0;
+        for (let bit = 0; bit < 8; bit++) {
+          const y = yStart + bit;
+          if (y >= height) continue;
+          const srcByteIndex = y * bytesPerRow + (x >> 3);
+          const srcBitMask = 0x80 >> (x & 7);
+          if (raster[srcByteIndex] & srcBitMask) byteVal |= (0x80 >> bit);
+        }
+        colData[dx] = byteVal;
       }
-      colData[x] = byteVal;
+      parts.push(Buffer.from([ESC, 0x2A, 0x00, chunkWidth & 0xFF, (chunkWidth >> 8) & 0xFF]), colData);
     }
-    parts.push(Buffer.from([ESC, 0x2A, 0x00, width & 0xFF, (width >> 8) & 0xFF]), colData, Buffer.from([0x0A]));
+    parts.push(Buffer.from([0x0A])); // one LF per band, after all its chunks
   }
 
   parts.push(LINE_SPACING_RESET);
