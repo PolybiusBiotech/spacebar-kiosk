@@ -483,10 +483,11 @@ export async function renderSlip(order) {
     COLOR_BLACK,
     barcodeRaster,
     t(d.barcode),
+    COLOUR_RED,
     ...(d.createdAt ? [t(`Created: ${d.createdAt}`)] : []),
     ...(d.expiresAt ? [t(`Expires: ${d.expiresAt}`)] : []),
     ALIGN_LEFT, t("-".repeat(COLS)),
-    ALIGN_CENTER, ...d.footer.map(l => t(l)),
+    ALIGN_CENTER, COLOUR_RED, ...d.footer.map(l => t(l)),
     FULL_CUT
   );
 
