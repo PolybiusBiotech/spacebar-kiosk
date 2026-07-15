@@ -103,28 +103,28 @@ test("barcodeRasterBytes sets 16-dot line spacing, then ESC * single-density ban
   assert.ok(raster.includes(Buffer.from([0x1B, 0x2A, 0x00])), "contains an ESC * 0 single-density band");
 });
 
-test("barcodeRasterBytes emits multiple ESC * chunks per band when width exceeds the printer's per-command limit", () => {
-  // Parses the exact structure (rather than scanning for byte values) since
-  // arbitrary bit-image data can coincidentally contain a 0x0A byte that
-  // isn't really a band-separator line feed.
+// Splitting a band into multiple back-to-back ESC * commands was tried and
+// made things worse (broken line spacing) rather than tiling horizontally —
+// so each band must fit in a single command, under the printer's observed
+// ~192px per-line limit. Parses the exact structure (rather than scanning
+// for byte values) since arbitrary bit-image data can coincidentally
+// contain a 0x0A byte that isn't really a band-separator line feed.
+test("barcodeRasterBytes emits exactly one ESC * command per 8px band, within the printer's per-line limit", () => {
   const raster = barcodeRasterBytes(ORDER.barcode);
   let pos = 3; // after ESC 3 16
   let bandCount = 0;
-  let maxChunksInABand = 0;
   while (pos < raster.length - 2) { // before the trailing ESC 2
-    let chunksThisBand = 0;
-    while (raster[pos] === 0x1B && raster[pos + 1] === 0x2A && raster[pos + 2] === 0x00) {
-      const chunkWidth = raster[pos + 3] | (raster[pos + 4] << 8);
-      pos += 5 + chunkWidth;
-      chunksThisBand++;
-    }
-    assert.equal(raster[pos], 0x0A, "band ends with a single line feed");
+    assert.equal(raster[pos], 0x1B, "ESC");
+    assert.equal(raster[pos + 1], 0x2A, "*");
+    assert.equal(raster[pos + 2], 0x00, "single-density");
+    const width = raster[pos + 3] | (raster[pos + 4] << 8);
+    assert.ok(width <= 192, `band width ${width}px must stay under the printer's per-line limit`);
+    pos += 5 + width;
+    assert.equal(raster[pos], 0x0A, "exactly one line feed per band, no extra chunk headers");
     pos += 1;
     bandCount++;
-    maxChunksInABand = Math.max(maxChunksInABand, chunksThisBand);
   }
   assert.ok(bandCount > 1, "barcode height requires multiple 8px bands");
-  assert.ok(maxChunksInABand > 1, "barcode width exceeds a single ESC * command's limit, so each band is chunked");
 });
 
 test("barcodeRasterBytes produces different bars for different codes", () => {
@@ -157,6 +157,16 @@ test("renderSlip prints £ using the printer's PC437 code point (0x9C), not raw 
   const buf = await renderSlip(ORDER); // ORDER.total is "9.00" -> priceCol pads to PRICE_COL (7) wide
   const cp437Bytes = Buffer.concat([Buffer.from([0x9C]), Buffer.from("  9.00", "ascii")]);
   assert.ok(buf.includes(cp437Bytes), "total amount uses the PC437 £ byte");
+});
+
+test("renderSlip prints accented product names using their real PC437 byte (e.g. é in Rosé)", async () => {
+  const roseOrder = {
+    ...ORDER,
+    lines: [{ description: "Nice Pale Rosé 187ml", quantity: 1, line_total: "6.00" }]
+  };
+  const buf = await renderSlip(roseOrder);
+  const cp437Bytes = Buffer.concat([Buffer.from("Nice Pale Ros", "ascii"), Buffer.from([0x82]), Buffer.from(" 187ml", "ascii")]);
+  assert.ok(buf.includes(cp437Bytes), "é uses PC437 byte 0x82, not raw Latin-1 0xE9");
 });
 
 // ── renderSlipHtml ─────────────────────────────────────────────────────────

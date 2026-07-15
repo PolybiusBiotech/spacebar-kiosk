@@ -64,18 +64,38 @@ const FONT_A        = Buffer.from([ESC, 0x4D, 0x00]); // ESC M 0 — standard fo
 const SELECT_CP437  = Buffer.from([ESC, 0x74, 0x00]); // ESC t 0 — character code table: PC437
 const FULL_CUT      = Buffer.from([GS,  0x56, 0x41, 0x00]);
 
-// £ is U+00A3; Node's ascii/latin1 encoding writes that as byte 0xA3, but
-// in PC437 (selected above) 0xA3 is "ú" — PC437's £ is byte 0x9C. Every
-// text-emitting helper below must route through this, not raw Buffer.from.
-const POUND_CP437 = 0x9C;
+// Node's ascii/latin1 Buffer encoding writes each character as its raw
+// Latin-1 code point byte, but this printer's active code page is PC437
+// (selected above), which diverges from Latin-1 for £ and every accented
+// Western-European letter product names actually use (e.g. é in "Rosé").
+// Verified against unicode.org/Public/MAPPINGS/VENDORS/MICSFT/PC/CP437.TXT.
+// Plain ASCII (0x00-0x7F) is identical in both and needs no remapping —
+// every text-emitting helper below must route through this, not raw
+// Buffer.from, so any of these characters get their real PC437 byte.
+const CP437_OVERRIDES = {
+  "Ç": 0x80, "ü": 0x81, "é": 0x82, "â": 0x83, "ä": 0x84,
+  "à": 0x85, "å": 0x86, "ç": 0x87, "ê": 0x88, "ë": 0x89,
+  "è": 0x8A, "ï": 0x8B, "î": 0x8C, "ì": 0x8D, "Ä": 0x8E,
+  "Å": 0x8F, "É": 0x90, "æ": 0x91, "Æ": 0x92, "ô": 0x93,
+  "ö": 0x94, "ò": 0x95, "û": 0x96, "ù": 0x97, "ÿ": 0x98,
+  "Ö": 0x99, "Ü": 0x9A, "¢": 0x9B, "£": 0x9C, "¥": 0x9D,
+  "ƒ": 0x9F, "á": 0xA0, "í": 0xA1, "ó": 0xA2, "ú": 0xA3,
+  "ñ": 0xA4, "Ñ": 0xA5,
+};
 
 function encodeText(str) {
-  const segments = String(str).split("£");
   const parts = [];
-  for (let i = 0; i < segments.length; i++) {
-    if (i > 0) parts.push(Buffer.from([POUND_CP437]));
-    parts.push(Buffer.from(segments[i], "ascii"));
+  let plain = "";
+  for (const ch of String(str)) {
+    const overrideByte = CP437_OVERRIDES[ch];
+    if (overrideByte === undefined) {
+      plain += ch;
+      continue;
+    }
+    if (plain) { parts.push(Buffer.from(plain, "ascii")); plain = ""; }
+    parts.push(Buffer.from([overrideByte]));
   }
+  if (plain) parts.push(Buffer.from(plain, "ascii"));
   return Buffer.concat(parts);
 }
 
@@ -162,43 +182,45 @@ function itemLine(item) {
 const LINE_SPACING_16    = Buffer.from([ESC, 0x33, 16]); // ESC 3 16
 const LINE_SPACING_RESET = Buffer.from([ESC, 0x32]);     // ESC 2 — revert to default
 
-// This printer silently truncates a single ESC * command past ~192 dots
-// (54mm at ~90dpi, measured against a real barcode print) — a suspiciously
-// round number for a physical paper-width limit, more likely a small
-// internal graphics buffer cap. Chunk each band under that instead of
-// shrinking the (already-verified-correct) module widths: consecutive
-// ESC * calls with no line feed between them tile horizontally, since a
-// bit-image command advances the print position by its own width.
-const ESC_STAR_MAX_CHUNK_PX = 160; // comfortably under the ~192px cutoff
+// This printer silently corrupts a single ESC * command past ~192 dots
+// (54mm at ~90dpi, measured against a real barcode print). Splitting each
+// band into multiple back-to-back ESC * commands didn't help — the later
+// chunks came out with broken line spacing instead of tiling horizontally
+// as a bit-image command normally would, so hitting this limit likely
+// triggers some kind of implicit line advance rather than just truncating.
+// The only remaining lever is keeping every band under the limit in a
+// single command, which for the barcode means narrower modules (see
+// ITF_NARROW_PX/ITF_WIDE_PX) rather than chunking.
+const ESC_STAR_MAX_WIDTH_PX = 180; // margin below the observed ~192px cutoff
 
 // `raster` is row-major, 1 bit per pixel, MSB-first, `bytesPerRow` bytes
 // per row, `height` rows — the same format buildLogoBytes()'s PBM parsing
-// and barcodeRasterBytes()'s bit-packing both already produce.
+// and barcodeRasterBytes()'s bit-packing both already produce. Throws if
+// `width` exceeds the printer's per-line limit — callers must keep their
+// image narrow enough (see ESC_STAR_MAX_WIDTH_PX).
 function escStarBitImage(bytesPerRow, height, raster) {
   const width = bytesPerRow * 8;
+  if (width > ESC_STAR_MAX_WIDTH_PX) {
+    throw new Error(`escStarBitImage: width ${width}px exceeds the printer's ~${ESC_STAR_MAX_WIDTH_PX}px per-line limit`);
+  }
   const bandCount = Math.ceil(height / 8);
   const parts = [LINE_SPACING_16];
 
   for (let band = 0; band < bandCount; band++) {
     const yStart = band * 8;
-    for (let chunkStart = 0; chunkStart < width; chunkStart += ESC_STAR_MAX_CHUNK_PX) {
-      const chunkWidth = Math.min(ESC_STAR_MAX_CHUNK_PX, width - chunkStart);
-      const colData = Buffer.alloc(chunkWidth);
-      for (let dx = 0; dx < chunkWidth; dx++) {
-        const x = chunkStart + dx;
-        let byteVal = 0;
-        for (let bit = 0; bit < 8; bit++) {
-          const y = yStart + bit;
-          if (y >= height) continue;
-          const srcByteIndex = y * bytesPerRow + (x >> 3);
-          const srcBitMask = 0x80 >> (x & 7);
-          if (raster[srcByteIndex] & srcBitMask) byteVal |= (0x80 >> bit);
-        }
-        colData[dx] = byteVal;
+    const colData = Buffer.alloc(width);
+    for (let x = 0; x < width; x++) {
+      let byteVal = 0;
+      for (let bit = 0; bit < 8; bit++) {
+        const y = yStart + bit;
+        if (y >= height) continue;
+        const srcByteIndex = y * bytesPerRow + (x >> 3);
+        const srcBitMask = 0x80 >> (x & 7);
+        if (raster[srcByteIndex] & srcBitMask) byteVal |= (0x80 >> bit);
       }
-      parts.push(Buffer.from([ESC, 0x2A, 0x00, chunkWidth & 0xFF, (chunkWidth >> 8) & 0xFF]), colData);
+      colData[x] = byteVal;
     }
-    parts.push(Buffer.from([0x0A])); // one LF per band, after all its chunks
+    parts.push(Buffer.from([ESC, 0x2A, 0x00, width & 0xFF, (width >> 8) & 0xFF]), colData, Buffer.from([0x0A]));
   }
 
   parts.push(LINE_SPACING_RESET);
@@ -262,8 +284,12 @@ const ITF_DIGIT_WIDTHS = [
   [0, 1, 0, 1, 0], // 9
 ];
 
-const ITF_NARROW_PX = 3; // chunky, printer-friendly modules — this is a
-const ITF_WIDE_PX   = 8; // 9-pin dot matrix, fine 1px bars bleed together
+// Narrower than ideal for a 9-pin dot matrix printer (fine bars are more
+// prone to ink bleed) — forced this small by ESC_STAR_MAX_WIDTH_PX, the
+// printer's per-line column limit. A wider, more bleed-resistant module
+// (e.g. narrow=3/wide=8) is preferable if that constraint is ever lifted.
+const ITF_NARROW_PX = 1;
+const ITF_WIDE_PX   = 3; // ratio 3.0 — max of the ITF-spec 2.25-3.0 range, for contrast
 const ITF_QUIET_PX  = ITF_NARROW_PX * 10; // ITF spec: quiet zone >= 10x the narrow bar width
 const ITF_HEIGHT_PX = 70;
 
