@@ -64,8 +64,14 @@ test("renderSlip wraps a long item description without pushing the price onto it
     ]
   };
   const buf = await renderSlip(longDescOrder);
-  const lines = buf.toString("latin1").split("\n");
+  const text = buf.toString("latin1");
+  // Scope to the item block only — the rest of the buffer contains raw
+  // binary bit-image bytes (logo/barcode) that legitimately contain \n
+  // bytes and aren't real printable text lines.
+  const itemBlock = text.slice(text.indexOf("1 x "), text.indexOf("Total"));
+  const lines = itemBlock.split("\n").filter(Boolean);
 
+  assert.ok(lines.length >= 2, "description actually wrapped across multiple lines");
   for (const line of lines) {
     assert.ok(line.length <= COLS, `line exceeds ${COLS} cols: ${JSON.stringify(line)}`);
   }
