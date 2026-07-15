@@ -62,6 +62,13 @@ const ITALIC_OFF    = Buffer.from([ESC, 0x35]);        // ESC 5
 const FONT_B        = Buffer.from([ESC, 0x4D, 0x01]); // ESC M 1 — condensed font (smaller on supported printers)
 const FONT_A        = Buffer.from([ESC, 0x4D, 0x00]); // ESC M 0 — standard font (reset)
 const SELECT_CP437  = Buffer.from([ESC, 0x74, 0x00]); // ESC t 0 — character code table: PC437
+// ESC U 1 — unidirectional print mode. Sticky until ESC @/reset/power-off,
+// so setting it once after INIT covers the whole receipt. Per Epson's
+// spec this exists specifically to keep multi-band bit images aligned top
+// to bottom — the default bidirectional printing (alternating scan
+// direction each line for speed) is a plausible explanation for the
+// misaligned/garbled results seen when this wasn't set.
+const UNIDIRECTIONAL_ON = Buffer.from([ESC, 0x55, 0x01]);
 const FULL_CUT      = Buffer.from([GS,  0x56, 0x41, 0x00]);
 
 // Node's ascii/latin1 Buffer encoding writes each character as its raw
@@ -182,26 +189,31 @@ function itemLine(item) {
 const LINE_SPACING_16    = Buffer.from([ESC, 0x33, 16]); // ESC 3 16
 const LINE_SPACING_RESET = Buffer.from([ESC, 0x32]);     // ESC 2 — revert to default
 
-// This printer silently corrupts a single ESC * command past ~192 dots
-// (54mm at ~90dpi, measured against a real barcode print). Splitting each
-// band into multiple back-to-back ESC * commands didn't help — the later
-// chunks came out with broken line spacing instead of tiling horizontally
-// as a bit-image command normally would, so hitting this limit likely
-// triggers some kind of implicit line advance rather than just truncating.
-// The only remaining lever is keeping every band under the limit in a
-// single command, which for the barcode means narrower modules (see
-// ITF_NARROW_PX/ITF_WIDE_PX) rather than chunking.
-const ESC_STAR_MAX_WIDTH_PX = 180; // margin below the observed ~192px cutoff
+// This printer garbled a single ESC * command past ~192 dots (54mm at
+// ~90dpi), and chunking into multiple commands per band made it worse
+// (broken line spacing) rather than better. Per Stephen Early (who has
+// hands-on ESC/POS dot-matrix experience): this printer defaults to
+// bidirectional printing (alternating scan direction each line for speed)
+// and single-density mode moves the print head faster than its
+// controller can keep up with for bit-image data — both plausible causes
+// of exactly what we saw, rather than a hard fixed-width buffer limit.
+// UNIDIRECTIONAL_ON (always left-to-right, returning before the next
+// line) and double-density mode (m=1, half the head speed) address both.
+// Module widths (ITF_NARROW_PX/ITF_WIDE_PX) are deliberately left
+// unchanged from the previous (narrower) attempt for this test round, to
+// isolate whether density/direction alone fixes the garbling before
+// touching bar width again.
+const ESC_STAR_MAX_WIDTH_PX = 400; // loose sanity bound, not a tuned hardware limit
 
 // `raster` is row-major, 1 bit per pixel, MSB-first, `bytesPerRow` bytes
 // per row, `height` rows — the same format buildLogoBytes()'s PBM parsing
 // and barcodeRasterBytes()'s bit-packing both already produce. Throws if
-// `width` exceeds the printer's per-line limit — callers must keep their
-// image narrow enough (see ESC_STAR_MAX_WIDTH_PX).
+// `width` is unreasonably large — a sanity check, not a tuned limit (see
+// ESC_STAR_MAX_WIDTH_PX).
 function escStarBitImage(bytesPerRow, height, raster) {
   const width = bytesPerRow * 8;
   if (width > ESC_STAR_MAX_WIDTH_PX) {
-    throw new Error(`escStarBitImage: width ${width}px exceeds the printer's ~${ESC_STAR_MAX_WIDTH_PX}px per-line limit`);
+    throw new Error(`escStarBitImage: width ${width}px exceeds the sanity bound of ${ESC_STAR_MAX_WIDTH_PX}px`);
   }
   const bandCount = Math.ceil(height / 8);
   const parts = [LINE_SPACING_16];
@@ -220,7 +232,9 @@ function escStarBitImage(bytesPerRow, height, raster) {
       }
       colData[x] = byteVal;
     }
-    parts.push(Buffer.from([ESC, 0x2A, 0x00, width & 0xFF, (width >> 8) & 0xFF]), colData, Buffer.from([0x0A]));
+    // ESC * 1 — 8-dot DOUBLE density (m=1), not single (m=0): half the
+    // print head speed, per Stephen Early's advice above.
+    parts.push(Buffer.from([ESC, 0x2A, 0x01, width & 0xFF, (width >> 8) & 0xFF]), colData, Buffer.from([0x0A]));
   }
 
   parts.push(LINE_SPACING_RESET);
@@ -461,6 +475,7 @@ export async function renderSlip(order) {
   const parts = [
     INIT,
     SELECT_CP437,
+    UNIDIRECTIONAL_ON,
     ALIGN_CENTER,
     COLOUR_RED, LOGO_ESC_POS, COLOUR_BLACK,
     t(""),

@@ -32,6 +32,15 @@ test("renderSlip starts with ESC @ (printer init)", async () => {
   assert.equal(buf[1], 0x40, "@");
 });
 
+test("renderSlip enables unidirectional print mode (ESC U 1)", async () => {
+  // Sticky until ESC @/reset/power-off, so this only needs to be sent once
+  // per receipt — per Stephen Early, this keeps multi-band bit images
+  // (logo/barcode) aligned top to bottom instead of the default
+  // bidirectional (alternating scan direction) printing.
+  const buf = await renderSlip(ORDER);
+  assert.ok(buf.includes(Buffer.from([0x1B, 0x55, 0x01])), "ESC U 1 present");
+});
+
 test("renderSlip ends with full cut command (GS V A 0)", async () => {
   const buf = await renderSlip(ORDER);
   const tail = buf.slice(-4);
@@ -90,35 +99,34 @@ test("renderSlip includes Polybius lore header", async () => {
   assert.ok(text.includes("NETWORK"), "vendor line, wrapped remainder");
 });
 
-// The barcode is rasterized as a bitmap and printed via ESC * in
-// single-density mode (not GS v 0 or GS k) — this printer, a confirmed
-// Epson TM-U220B, doesn't implement GS k barcode firmware or GS v 0 raster
-// graphics correctly, and even ESC * only works in single-density mode.
+// The barcode is rasterized as a bitmap and printed via ESC * (not GS v 0
+// or GS k) — this printer, a confirmed Epson TM-U220B, doesn't implement
+// GS k barcode firmware or GS v 0 raster graphics correctly. Per Stephen
+// Early's advice, ESC * uses double-density mode (m=1) with unidirectional
+// printing (see UNIDIRECTIONAL_ON in renderSlip), not single-density —
+// the earlier single-density/bidirectional combination is the likely
+// cause of the garbling/misalignment seen in physical testing.
 // See slip.js's header comment and github.com/mike42/escpos-php/issues/98.
 
-test("barcodeRasterBytes sets 16-dot line spacing, then ESC * single-density bands, then resets spacing", () => {
+test("barcodeRasterBytes sets 16-dot line spacing, then ESC * double-density bands, then resets spacing", () => {
   const raster = barcodeRasterBytes(ORDER.barcode);
   assert.deepEqual([...raster.slice(0, 3)], [0x1B, 0x33, 16], "ESC 3 16 — 16-dot line spacing");
   assert.deepEqual([...raster.slice(-2)], [0x1B, 0x32], "ESC 2 — line spacing reset at the end");
-  assert.ok(raster.includes(Buffer.from([0x1B, 0x2A, 0x00])), "contains an ESC * 0 single-density band");
+  assert.ok(raster.includes(Buffer.from([0x1B, 0x2A, 0x01])), "contains an ESC * 1 double-density band");
 });
 
-// Splitting a band into multiple back-to-back ESC * commands was tried and
-// made things worse (broken line spacing) rather than tiling horizontally —
-// so each band must fit in a single command, under the printer's observed
-// ~192px per-line limit. Parses the exact structure (rather than scanning
-// for byte values) since arbitrary bit-image data can coincidentally
-// contain a 0x0A byte that isn't really a band-separator line feed.
-test("barcodeRasterBytes emits exactly one ESC * command per 8px band, within the printer's per-line limit", () => {
+// Parses the exact structure (rather than scanning for byte values) since
+// arbitrary bit-image data can coincidentally contain a 0x0A byte that
+// isn't really a band-separator line feed.
+test("barcodeRasterBytes emits exactly one ESC * command per 8px band", () => {
   const raster = barcodeRasterBytes(ORDER.barcode);
   let pos = 3; // after ESC 3 16
   let bandCount = 0;
   while (pos < raster.length - 2) { // before the trailing ESC 2
     assert.equal(raster[pos], 0x1B, "ESC");
     assert.equal(raster[pos + 1], 0x2A, "*");
-    assert.equal(raster[pos + 2], 0x00, "single-density");
+    assert.equal(raster[pos + 2], 0x01, "double-density");
     const width = raster[pos + 3] | (raster[pos + 4] << 8);
-    assert.ok(width <= 192, `band width ${width}px must stay under the printer's per-line limit`);
     pos += 5 + width;
     assert.equal(raster[pos], 0x0A, "exactly one line feed per band, no extra chunk headers");
     pos += 1;
